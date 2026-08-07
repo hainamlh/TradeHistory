@@ -270,9 +270,9 @@
           <span class="meta" id="monthlyMeta"></span>
         </div>
         <div class="seg-row">
-          <button class="seg active" id="btnPeriodMonth" data-mode="month">Theo tháng</button>
+          <button class="seg " id="btnPeriodMonth" data-mode="month">Theo tháng</button>
           <button class="seg" id="btnPeriodWeek" data-mode="week">Theo tuần</button>
-          <button class="seg" id="btnPeriodWeekday" data-mode="weekday">Theo ngày</button>
+          <button class="seg active" id="btnPeriodWeekday" data-mode="weekday">Theo ngày</button>
         </div>
         <div class="seg-row" id="periodNav" style="display:none; align-items:center; justify-content:space-between;">
           <button class="small ghost" id="btnPeriodPrev">◀ Trước</button>
@@ -354,7 +354,7 @@
   var tablePageSize = 100;
   var tableShown = 100;
   var currentStats = null;
-  var periodMode = "month";
+  var periodMode = "weekday";
 
   // ---------- Theme ----------
   function applyTheme(t){
