@@ -221,8 +221,8 @@
     </div>
     <div class="top-actions">
       <input type="file" id="fileInput" class="file-input-hidden" accept=".htm,.html" multiple>
-      <button class="primary" id="btnImport">+ Import báo cáo</button>
-      <button class="ghost" id="btnExplain">? Giải thích</button>
+      <button class="primary" id="btnImport">+ Import</button>
+      <button class="ghost" id="btnExplain">Chú thích</button>
       <button class="ghost" id="btnTheme">Chế độ sáng</button>
       <button class="ghost" id="btnExportJson" title="Lưu toàn bộ dữ liệu đã gộp thành 1 file JSON để backup">Xuất backup</button>
       <button class="ghost" id="btnImportJson" title="Nạp lại file backup JSON đã xuất trước đó">Nạp backup</button>
@@ -272,7 +272,7 @@
         <div class="seg-row">
           <button class="seg active" id="btnPeriodMonth" data-mode="month">Theo tháng</button>
           <button class="seg" id="btnPeriodWeek" data-mode="week">Theo tuần</button>
-          <button class="seg" id="btnPeriodWeekday" data-mode="weekday">Theo ngày trong tuần</button>
+          <button class="seg" id="btnPeriodWeekday" data-mode="weekday">Theo ngày</button>
         </div>
         <div class="seg-row" id="periodNav" style="display:none; align-items:center; justify-content:space-between;">
           <button class="small ghost" id="btnPeriodPrev">◀ Trước</button>
@@ -413,6 +413,15 @@
   // ---------- Parsing ----------
   var DATE_RE = /^\d{4}\.\d{2}\.\d{2} \d{2}:\d{2}:\d{2}$/;
 
+  // MT5 chen dau cach (space / non-breaking space) lam phan cach hang nghin
+  // cho cac cot so (vd Loi nhuan/Can bang) khi gia tri >= 1000, vi du "7 175.84".
+  // Phai loai bo khoang trang truoc khi parseFloat, neu khong so se bi cat cut.
+  function parseNum(text){
+    var cleaned = String(text).replace(/[\s\u00A0]/g, "");
+    var v = parseFloat(cleaned);
+    return isNaN(v) ? 0 : v;
+  }
+
   function parseDealsFromHtml(html){
     var doc = new DOMParser().parseFromString(html, "text/html");
     var rows = doc.querySelectorAll("tr");
@@ -434,14 +443,14 @@
         symbol: tds[2].textContent.trim(),
         type: tds[3].textContent.trim().toLowerCase(),
         direction: tds[4].textContent.trim().toLowerCase(),
-        volume: parseFloat(tds[5].textContent) || 0,
-        price: parseFloat(tds[6].textContent) || 0,
+        volume: parseNum(tds[5].textContent),
+        price: parseNum(tds[6].textContent),
         order: tds[7].textContent.trim(),
-        commission: parseFloat(tds[9].textContent) || 0,
-        fee: parseFloat(tds[10].textContent) || 0,
-        swap: parseFloat(tds[11].textContent) || 0,
-        profit: parseFloat(tds[12].textContent) || 0,
-        balance: parseFloat(tds[13].textContent) || 0,
+        commission: parseNum(tds[9].textContent),
+        fee: parseNum(tds[10].textContent),
+        swap: parseNum(tds[11].textContent),
+        profit: parseNum(tds[12].textContent),
+        balance: parseNum(tds[13].textContent),
         comment: tds[14] ? tds[14].textContent.trim() : ""
       });
     }
@@ -510,6 +519,14 @@
     var equity = deals.map(function(d){ return { ts:d.ts, time:d.time, balance:d.balance }; });
     var startBalance = equity.length ? equity[0].balance : 0;
     var currentBalance = equity.length ? equity[equity.length-1].balance : 0;
+
+    // Type = balance -> nop tien (profit > 0) hoac rut tien (profit < 0).
+    // Von thuc nop vao tai khoan = tong tat ca cac lan nop tru di cac lan rut,
+    // dung lam mau so tinh % Tong loi nhuan thay vi chi lay so du dau tien.
+    var balanceOps = deals.filter(function(d){ return d.type === "balance"; });
+    var totalDeposits = balanceOps.filter(function(d){ return d.profit > 0; }).reduce(function(s,d){ return s+d.profit; }, 0);
+    var totalWithdrawals = balanceOps.filter(function(d){ return d.profit < 0; }).reduce(function(s,d){ return s+d.profit; }, 0); // am
+    var netDeposited = totalDeposits + totalWithdrawals;
 
     var peak = -Infinity, maxDD = 0, maxDDPct = 0;
     for(var i=0;i<equity.length;i++){
@@ -592,6 +609,7 @@
       winRate: winRate, profitFactor: profitFactor, avgWin: avgWin, avgLoss: avgLoss,
       rr: rr, expectancy: expectancy,
       equity: equity, startBalance: startBalance, currentBalance: currentBalance, avgBalance: avgBalance,
+      totalDeposits: totalDeposits, totalWithdrawals: totalWithdrawals, netDeposited: netDeposited,
       maxDD: maxDD, maxDDPct: maxDDPct,
       maxWinStreak: maxWinStreak, maxLossStreak: maxLossStreak,
       symbolList: symbolList, monthList: monthList, weekList: weekList,
@@ -611,23 +629,24 @@
 
   // ---------- KPI ----------
   function renderKpi(stats){
-    var base = stats.avgBalance || stats.startBalance || 1;
-    var totalRetPct = stats.startBalance ? (stats.netTradingPL/stats.startBalance*100) : 0;
+    var base = stats.avgBalance || stats.netDeposited || 1;
+    var totalRetPct = stats.netDeposited ? (stats.netTradingPL/stats.netDeposited*100) : 0;
     var avgWinPct = base ? (stats.avgWin/base*100) : 0;
     var avgLossPct = base ? (stats.avgLoss/base*100) : 0;
     var expectancyPct = base ? (stats.expectancy/base*100) : 0;
-    var rrPct = stats.rr*100;
     var lossStreakShare = stats.closed.length ? (stats.maxLossStreak/stats.closed.length*100) : 0;
+    var depositSub = "Vốn gốc "+fmt2(stats.totalDeposits)+
+      (stats.totalWithdrawals ? ", đã rút "+fmt2(Math.abs(stats.totalWithdrawals)) : "");
 
     var cards = [
-      { label:"Tổng lợi nhuận", value: fmtSigned(totalRetPct)+"%", sub: fmtSigned(stats.netTradingPL)+" (vốn ban đầu "+fmt2(stats.startBalance)+")", cls: stats.netTradingPL>=0?"up":"down" },
-      { label:"Drawdown", value: fmtPct(stats.maxDDPct), sub: "-"+fmt2(stats.maxDD)+" từ đỉnh vốn", cls:"down" },
+      { label:"Tổng lợi nhuận", value: fmtSigned(totalRetPct)+"%", sub: fmtSigned(stats.netTradingPL)+" ("+depositSub+")", cls: stats.netTradingPL>=0?"up":"down" },
+      { label:"Drawdown", value: fmtPct(stats.maxDDPct), sub: "-"+fmt2(stats.maxDD)+" từ đỉnh", cls:"down" },
+      { label:"Chuỗi thua", value: stats.maxLossStreak+" lệnh", sub: "= "+fmtPct(lossStreakShare)+" tổng số lệnh đóng", cls:"down" },
       { label:"Tỷ lệ thắng", value: fmtPct(stats.winRate), sub: stats.wins.length+" Thắng / "+stats.losses.length+" Thua / "+stats.breakeven.length+" Hòa", cls:"" },
       { label:"Lãi TB / lệnh", value: "+"+fmt2(avgWinPct)+"%", sub: "+"+fmt2(stats.avgWin)+" mỗi lệnh thắng", cls:"up" },
       { label:"Lỗ TB / lệnh", value: "-"+fmt2(avgLossPct)+"%", sub: "-"+fmt2(stats.avgLoss)+" mỗi lệnh thua", cls:"down" },
-      { label:"Kỳ vọng", value: fmtSigned(expectancyPct)+"%", sub: fmtSigned(stats.expectancy)+" mỗi lệnh (expectancy)", cls: stats.expectancy>=0?"up":"down" },
-      { label:"R:R trung bình", value: fmt2(rrPct)+"%", sub: "Lãi TB : Lỗ TB = "+fmt2(stats.rr)+" : 1", cls: stats.rr>=1?"up":"down" },
-      { label:"Chuỗi thua", value: stats.maxLossStreak+" lệnh", sub: "= "+fmtPct(lossStreakShare)+" tổng số lệnh đóng", cls:"down" }
+      { label:"Expectancy", value: fmtSigned(expectancyPct)+"%", sub: fmtSigned(stats.expectancy)+" mỗi lệnh", cls: stats.expectancy>=0?"up":"down" },
+      { label:"R:R trung bình", value: "1 : "+fmt2(stats.rr), sub: fmt2(stats.rr)+ "R" }
     ];
     var html = cards.map(function(c){
       return '<div class="kpi"><div class="label">'+c.label+'</div>'+
@@ -1151,13 +1170,13 @@
 
   // ---------- Giai thich (panel inline) ----------
   var EXPLAIN_ITEMS = [
-    { term:"Tổng lợi nhuận", def:"Phần trăm hiển thị = lợi nhuận ròng các lệnh đã đóng chia cho vốn ban đầu. Số tiền tuyệt đối ghi ở dòng dưới." },
+    { term:"Tổng lợi nhuận", def:"Phần trăm hiển thị = lợi nhuận ròng các lệnh đã đóng chia cho tổng vốn thực đã nạp vào tài khoản (cộng dồn mọi lần nạp, trừ đi các lần rút — không chỉ lấy lần nạp đầu tiên). Số tiền tuyệt đối ghi ở dòng dưới." },
     { term:"Drawdown", def:"Mức sụt giảm lớn nhất của số dư, tính từ đỉnh vốn cao nhất từng đạt được cho tới đáy thấp nhất sau đó, theo % và số tiền tuyệt đối." },
     { term:"Tỷ lệ thắng (Win rate)", def:"Số lệnh có lãi chia cho tổng số lệnh đã đóng. Lệnh hòa vốn không tính là thắng." },
     { term:"Lãi TB / lệnh", def:"Mức lãi trung bình của một lệnh thắng, tính theo % trên vốn trung bình của tài khoản trong suốt lịch sử đã import." },
     { term:"Lỗ TB / lệnh", def:"Mức lỗ trung bình của một lệnh thua, tính theo % trên vốn trung bình của tài khoản trong suốt lịch sử đã import." },
     { term:"Kỳ vọng (Expectancy)", def:"Lãi/lỗ trung bình kỳ vọng cho mỗi lệnh tiếp theo, tính từ tỷ lệ thắng và R:R hiện tại, quy đổi ra % trên vốn trung bình." },
-    { term:"R:R trung bình", def:"Tỷ lệ giữa lãi trung bình mỗi lệnh thắng và lỗ trung bình mỗi lệnh thua, hiển thị dạng %. 150% nghĩa là lãi trung bình gấp 1.5 lần lỗ trung bình." },
+    { term:"R:R trung bình", def:"Risk:Reward — nếu chấp nhận rủi ro 1R (bằng đúng mức lỗ trung bình mỗi lệnh thua), hệ thống hiện tại tạo ra trung bình bao nhiêu R lợi nhuận. Ví dụ 1 : 1.78 nghĩa là rủi ro 1 để kỳ vọng thu về 1.78." },
     { term:"Chuỗi thua", def:"Số lệnh thua liên tiếp nhiều nhất từng xảy ra, kèm tỷ lệ % so với tổng số lệnh đã đóng." },
     { term:"% Vốn (Nhật ký lệnh đóng)", def:"Lãi/lỗ của lệnh chia cho số dư tài khoản ngay trước khi lệnh đóng — cho biết mức tác động của từng lệnh so với vốn tại thời điểm đó." },
     { term:"Hedge / đóng chéo", def:"Các lệnh có hướng \"out by\" (đóng chéo hai lệnh ngược chiều) hoặc ghi chú liên quan hedge. Dùng nhiều hedge thường làm tăng chi phí swap." },
