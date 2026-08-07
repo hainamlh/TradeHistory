@@ -290,6 +290,16 @@
     <button class="tab-btn" id="tabBtnGrowth" data-tab="tabGrowth">Mô hình 1%</button>
   </div>
 
+  <div class="gm-currency-bar" style="margin-bottom: 20px;">
+    <div class="seg-row" style="margin-bottom:0;">
+      <button class="seg active" id="gmCcyVnd" data-ccy="VND">VND</button>
+      <button class="seg" id="gmCcyUsd" data-ccy="USD">USD</button>
+    </div>
+    <label class="gm-fx-label">Tỷ giá quy đổi
+      <input type="text" inputmode="decimal" id="gmFxRate" class="gm-fx-input">
+    </label>
+  </div>
+
   <div id="tabJournal" class="tab-pane">
 
   <div id="dropzone">
@@ -402,16 +412,6 @@
   </div><!-- /#tabJournal -->
 
   <div id="tabGrowth" class="tab-pane" hidden>
-
-    <div class="gm-currency-bar">
-      <div class="seg-row" style="margin-bottom:0;">
-        <button class="seg active" id="gmCcyVnd" data-ccy="VND">VND</button>
-        <button class="seg" id="gmCcyUsd" data-ccy="USD">USD</button>
-      </div>
-      <label class="gm-fx-label">Tỷ giá quy đổi
-        <input type="text" inputmode="decimal" id="gmFxRate" class="gm-fx-input">
-      </label>
-    </div>
 
     <div class="gm-kpi-grid" id="gmKpiGrid"></div>
 
@@ -781,6 +781,58 @@
   }
 
   // ---------- Dinh dang so ----------
+  window.mt5_getCcyMode = function() {
+    try {
+      return localStorage.getItem("mt5_growth_ccy_v1") || "VND";
+    } catch(e) {
+      return "VND";
+    }
+  };
+  window.mt5_getFxRate = function() {
+    try {
+      var savedFx = parseFloat(localStorage.getItem("mt5_growth_fx_v1"));
+      return (savedFx && savedFx > 0) ? savedFx : 26290;
+    } catch(e) {
+      return 26290;
+    }
+  };
+
+  function fmtCurrency(usdVal, forceSign, showUnit) {
+    var ccy = window.mt5_getCcyMode();
+    var rate = window.mt5_getFxRate();
+    var sign = "";
+    if (usdVal > 0 && forceSign) {
+      sign = "+";
+    } else if (usdVal < 0) {
+      sign = "-";
+    }
+    var absVal = Math.abs(usdVal);
+    if (ccy === "USD") {
+      var valStr = (Math.round(absVal * 100) / 100).toLocaleString("en-US", {minimumFractionDigits: 2, maximumFractionDigits: 2});
+      return sign + "$" + valStr;
+    } else {
+      var vndVal = absVal * rate;
+      var valStr = Math.round(vndVal).toLocaleString("vi-VN");
+      var formatted = sign + valStr;
+      if (showUnit !== false) formatted += " VND";
+      return formatted;
+    }
+  }
+
+  function fmtChartValue(val) {
+    var ccy = window.mt5_getCcyMode();
+    var rate = window.mt5_getFxRate();
+    if (ccy === "USD") {
+      return "$" + Math.round(val).toLocaleString("en-US");
+    } else {
+      return Math.round(val * rate).toLocaleString("vi-VN");
+    }
+  }
+
+  function getPadL() {
+    return window.mt5_getCcyMode() === "VND" ? 75 : 55;
+  }
+
   function fmt2(n){
     var v = (Math.round(n*100)/100);
     return v.toLocaleString("en-US", {minimumFractionDigits:2, maximumFractionDigits:2});
@@ -802,17 +854,18 @@
     var avgLossPct = base ? (stats.avgLoss/base*100) : 0;
     var expectancyPct = base ? (stats.expectancy/base*100) : 0;
     var lossStreakShare = stats.closed.length ? (stats.maxLossStreak/stats.closed.length*100) : 0;
-    var depositSub = "Vốn gốc "+fmt2(stats.totalDeposits)+
-      (stats.totalWithdrawals ? ", đã rút "+fmt2(Math.abs(stats.totalWithdrawals)) : "");
+    
+    var depositSub = "Vốn gốc " + fmtCurrency(stats.totalDeposits, false) +
+      (stats.totalWithdrawals ? ", đã rút " + fmtCurrency(Math.abs(stats.totalWithdrawals), false) : "");
 
     var cards = [
-      { label:"Tổng lợi nhuận", value: fmtSigned(totalRetPct)+"%", sub: fmtSigned(stats.netTradingPL)+" ("+depositSub+")", cls: stats.netTradingPL>=0?"up":"down" },
-      { label:"Drawdown", value: fmtPct(stats.maxDDPct), sub: "-"+fmt2(stats.maxDD)+" từ đỉnh", cls:"down" },
+      { label:"Tổng lợi nhuận", value: fmtSigned(totalRetPct)+"%", sub: fmtCurrency(stats.netTradingPL, true)+" ("+depositSub+")", cls: stats.netTradingPL>=0?"up":"down" },
+      { label:"Drawdown", value: fmtPct(stats.maxDDPct), sub: "-"+fmtCurrency(stats.maxDD, false)+" từ đỉnh", cls:"down" },
       { label:"Chuỗi thua", value: stats.maxLossStreak+" lệnh", sub: "= "+fmtPct(lossStreakShare)+" tổng số lệnh đóng", cls:"down" },
       { label:"Tỷ lệ thắng", value: fmtPct(stats.winRate), sub: stats.wins.length+" Thắng / "+stats.losses.length+" Thua / "+stats.breakeven.length+" Hòa", cls:"" },
-      { label:"Lãi TB / lệnh", value: "+"+fmt2(avgWinPct)+"%", sub: "+"+fmt2(stats.avgWin)+" mỗi lệnh thắng", cls:"up" },
-      { label:"Lỗ TB / lệnh", value: "-"+fmt2(avgLossPct)+"%", sub: "-"+fmt2(stats.avgLoss)+" mỗi lệnh thua", cls:"down" },
-      { label:"Expectancy", value: fmtSigned(expectancyPct)+"%", sub: fmtSigned(stats.expectancy)+" mỗi lệnh", cls: stats.expectancy>=0?"up":"down" },
+      { label:"Lãi TB / lệnh", value: "+"+fmt2(avgWinPct)+"%", sub: "+"+fmtCurrency(stats.avgWin, false)+" mỗi lệnh thắng", cls:"up" },
+      { label:"Lỗ TB / lệnh", value: "-"+fmt2(avgLossPct)+"%", sub: "-"+fmtCurrency(stats.avgLoss, false)+" mỗi lệnh thua", cls:"down" },
+      { label:"Expectancy", value: fmtSigned(expectancyPct)+"%", sub: fmtCurrency(stats.expectancy, true)+" mỗi lệnh", cls: stats.expectancy>=0?"up":"down" },
       { label:"R:R trung bình", value: "1 : "+fmt2(stats.rr), sub: fmt2(stats.rr)+ "R" }
     ];
     var html = cards.map(function(c){
@@ -859,7 +912,7 @@
       if(sampled[sampled.length-1] !== visible[visible.length-1]) sampled.push(visible[visible.length-1]);
     }
 
-    var W=EQ_W, H=EQ_H, padL=EQ_PAD_L, padR=EQ_PAD_R, padT=EQ_PAD_T, padB=EQ_PAD_B;
+    var W=EQ_W, H=EQ_H, padL=getPadL(), padR=EQ_PAD_R, padT=EQ_PAD_T, padB=EQ_PAD_B;
     var minB = Math.min.apply(null, sampled.map(function(p){return p.balance;}));
     var maxB = Math.max.apply(null, sampled.map(function(p){return p.balance;}));
     if(minB === maxB){ minB -= 1; maxB += 1; }
@@ -879,7 +932,7 @@
       var gy = padT + (H-padT-padB)*i/steps;
       var val = maxB - (rangeB*i/steps);
       gridLines += '<line x1="'+padL+'" y1="'+gy.toFixed(1)+'" x2="'+(W-padR)+'" y2="'+gy.toFixed(1)+'" style="stroke:var(--line);stroke-width:1"/>';
-      gridLines += '<text class="axis-label" x="4" y="'+(gy+3).toFixed(1)+'">'+Math.round(val).toLocaleString("en-US")+'</text>';
+      gridLines += '<text class="axis-label" x="4" y="'+(gy+3).toFixed(1)+'">'+fmtChartValue(val)+'</text>';
     }
     function dlabel(ts){ var d=new Date(ts); return String(d.getDate()).padStart(2,"0")+"/"+(d.getMonth()+1)+"/"+d.getFullYear(); }
     var midTs = view.minTs + (view.maxTs-view.minTs)/2;
@@ -943,7 +996,7 @@
       var pxRatio = contRect.width/W;
       tooltip.style.left = (px*pxRatio) + "px";
       tooltip.style.top = (py*pxRatio) + "px";
-      tooltip.innerHTML = "<b>"+pt.time+"</b><br>Số dư: "+fmt2(pt.balance);
+      tooltip.innerHTML = "<b>"+pt.time+"</b><br>Số dư: "+fmtCurrency(pt.balance, false);
       tooltip.style.display = "block";
     });
     svgEl.addEventListener("mouseleave", function(){ if(!isDraggingEq) hideHover(); });
@@ -986,7 +1039,7 @@
     var rect = svgEl.getBoundingClientRect();
     var dxPix = e.clientX - dragStartXGlobal;
     var dxViewBox = dxPix/rect.width*EQ_W;
-    var plotW = EQ_W - EQ_PAD_L - EQ_PAD_R;
+    var plotW = EQ_W - getPadL() - EQ_PAD_R;
     var span = dragStartViewGlobal.maxTs - dragStartViewGlobal.minTs;
     var dts = -(dxViewBox/plotW) * span;
     var full = getFullEquityRange(currentStats);
@@ -1067,7 +1120,7 @@
       var pxRatio = contRect.width/W;
       tooltip.style.left = (midX*pxRatio) + "px";
       tooltip.style.top = (b.y*pxRatio) + "px";
-      tooltip.innerHTML = "<b>"+b.item.full+"</b><br>Lãi/lỗ: "+fmtSigned(b.item.pnl)+"<br>"+b.item.count+" lệnh";
+      tooltip.innerHTML = "<b>"+b.item.full+"</b><br>Lãi/lỗ: "+fmtCurrency(b.item.pnl, true)+"<br>"+b.item.count+" lệnh";
       tooltip.style.display = "block";
     });
     svgEl.addEventListener("mouseleave", function(){ hoverLine.style.display = "none"; tooltip.style.display = "none"; });
@@ -1188,7 +1241,7 @@
       return '<div class="sym-row">'+
         '<span class="sym-name">'+s.symbol+'</span>'+
         '<span class="sym-bar-track"><span class="sym-bar-fill" style="width:'+pct.toFixed(1)+'%;background:'+color+';"></span></span>'+
-        '<span class="sym-pnl '+pnlCls+'">'+fmtSigned(s.pnl)+'</span>'+
+        '<span class="sym-pnl '+pnlCls+'">'+fmtCurrency(s.pnl, true)+'</span>'+
         '<span class="sym-wr">'+fmtPct(s.winRate)+'</span>'+
       '</div>';
     }).join("");
@@ -1214,7 +1267,7 @@
       push("warn", "Tỷ lệ thắng thấp (" + fmtPct(stats.winRate) + ") trong khi R:R chỉ " + fmt2(stats.rr) + " — hai yếu tố này cùng yếu sẽ khó có lãi bền vững. Cần cải thiện một trong hai: hoặc nâng R:R (đặt chốt lỗ/chốt lời rõ ràng hơn), hoặc nâng tỷ lệ thắng (lọc điểm vào lệnh chặt hơn).");
     }
     if(stats.maxDDPct > 30){
-      push("warn", "Drawdown tối đa " + fmtPct(stats.maxDDPct) + " từ đỉnh vốn (" + fmt2(stats.maxDD) + "). Mức này khá cao, nên giảm khối lượng lệnh (lot size) hoặc giới hạn số lệnh mở đồng thời để bảo vệ vốn.");
+      push("warn", "Drawdown tối đa " + fmtPct(stats.maxDDPct) + " từ đỉnh vốn (" + fmtCurrency(stats.maxDD, false) + "). Mức này khá cao, nên giảm khối lượng lệnh (lot size) hoặc giới hạn số lệnh mở đồng thời để bảo vệ vốn.");
     } else if(stats.maxDDPct > 15){
       push("note", "Drawdown tối đa " + fmtPct(stats.maxDDPct) + " — ở mức cần theo dõi, nên đặt giới hạn drawdown tối đa cho tài khoản (ví dụ 20%) và dừng lại khi chạm ngưỡng.");
     }
@@ -1233,15 +1286,15 @@
       }
     }
     if(stats.totalSwap < 0 && Math.abs(stats.totalSwap) > Math.abs(stats.netTradingPL)*0.15 && stats.netTradingPL !== 0){
-      push("note", "Chi phí swap âm (" + fmt2(stats.totalSwap) + ") đang chiếm tỷ trọng đáng kể so với lợi nhuận giao dịch. Nếu hay giữ lệnh qua đêm, cần tính swap vào kỳ vọng lợi nhuận hoặc ưu tiên vào lệnh gần phiên đóng.");
+      push("note", "Chi phí swap âm (" + fmtCurrency(stats.totalSwap, false) + ") đang chiếm tỷ trọng đáng kể so với lợi nhuận giao dịch. Nếu hay giữ lệnh qua đêm, cần tính swap vào kỳ vọng lợi nhuận hoặc ưu tiên vào lệnh gần phiên đóng.");
     }
     if(stats.avgTradesPerDay > 15){
       push("note", "Trung bình " + stats.avgTradesPerDay.toFixed(1) + " lệnh/ngày giao dịch — tần suất khá cao. Kiểm tra xem đây có phải overtrading (vào lệnh khi không có tín hiệu rõ ràng) hay là chiến lược scalping chủ đích.");
     }
     if(stats.expectancy < 0 && stats.closed.length>=10){
-      push("warn", "Kỳ vọng lợi nhuận trên mỗi lệnh đang âm (" + fmtSigned(stats.expectancy) + "). Về dài hạn, hệ thống hiện tại sẽ ăn mòn vốn nếu không điều chỉnh.");
+      push("warn", "Kỳ vọng lợi nhuận trên mỗi lệnh đang âm (" + fmtCurrency(stats.expectancy, true) + "). Về dài hạn, hệ thống hiện tại sẽ ăn mòn vốn nếu không điều chỉnh.");
     } else if(stats.expectancy > 0 && stats.closed.length>=10){
-      push("good", "Kỳ vọng lợi nhuận trên mỗi lệnh đang dương (" + fmtSigned(stats.expectancy) + "). Có thể cân nhắc tăng dần khối lượng theo % vốn thay vì lot cố định để tối ưu tăng trưởng.");
+      push("good", "Kỳ vọng lợi nhuận trên mỗi lệnh đang dương (" + fmtCurrency(stats.expectancy, true) + "). Có thể cân nhắc tăng dần khối lượng theo % vốn thay vì lot cố định để tối ưu tăng trưởng.");
     }
     if(!items.length){
       push("note", "Chưa phát hiện điểm bất thường rõ rệt. Tiếp tục import dữ liệu định kỳ để theo dõi xu hướng.");
@@ -1302,10 +1355,10 @@
         "<td class='"+dirCls+"'>"+d.type.toUpperCase()+"</td>"+
         "<td>"+d.volume+"</td>"+
         "<td>"+d.price+"</td>"+
-        "<td class='"+pnlCls+"'>"+fmtSigned(d.profit)+"</td>"+
+        "<td class='"+pnlCls+"'>"+fmtCurrency(d.profit, true)+"</td>"+
         "<td class='"+pctCls+"'>"+pctStr+"</td>"+
-        "<td>"+fmt2(d.swap)+"</td>"+
-        "<td>"+fmt2(d.commission+d.fee)+"</td>"+
+        "<td>"+fmtCurrency(d.swap, false)+"</td>"+
+        "<td>"+fmtCurrency(d.commission+d.fee, false)+"</td>"+
       "</tr>";
     }).join("");
     document.getElementById("tradeBody").innerHTML = html || '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px;">Không có lệnh phù hợp bộ lọc</td></tr>';
@@ -1560,6 +1613,10 @@
   renderExplainList();
   loadState();
   renderAll();
+
+  document.addEventListener("mt5:currencyChanged", function(){
+    renderAll();
+  });
 })();
 </script>
 
@@ -1572,8 +1629,8 @@
   var FX_KEY = "mt5_growth_fx_v1";
   var CCY_KEY = "mt5_growth_ccy_v1";
 
-  var ccyMode = "VND";
-  var fxRate = GM_DATA.meta.fx;
+  var ccyMode = window.mt5_getCcyMode();
+  var fxRate = window.mt5_getFxRate();
   var selectedMonthIndex = 1;
   var blended = null; // { summaries }
 
@@ -1655,6 +1712,7 @@
         fxRate = v;
         try{ localStorage.setItem(FX_KEY, String(v)); }catch(e){}
         recomputeAndRender();
+        document.dispatchEvent(new CustomEvent("mt5:currencyChanged"));
       } else {
         fxInput.value = fxRate;
       }
@@ -1669,6 +1727,7 @@
     try{ localStorage.setItem(CCY_KEY, mode); }catch(e){}
     updateCcyButtons();
     renderAllGrowth();
+    document.dispatchEvent(new CustomEvent("mt5:currencyChanged"));
   }
 
   // ---------- Tabs ----------
