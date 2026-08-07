@@ -4,6 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Nhật ký giao dịch MT5</title>
+<link rel="icon" type="image/png" href="Tiltle web.png">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
   :root{
     --bg: #0B0F14;
@@ -277,12 +279,11 @@
       <button class="primary" id="btnImport">+ Import</button>
       <button class="ghost" id="btnExplain">Chú thích</button>
       <button class="ghost" id="btnTheme">Chế độ sáng</button>
-      <button class="ghost" id="btnExportJson" title="Lưu toàn bộ dữ liệu đã gộp thành 1 file JSON để backup">Xuất backup</button>
-      <button class="ghost" id="btnImportJson" title="Nạp lại file backup JSON đã xuất trước đó">Nạp backup</button>
-      <input type="file" id="jsonInput" class="file-input-hidden" accept=".json">
       <button class="ghost danger" id="btnClear">Xóa dữ liệu</button>
     </div>
   </header>
+
+
 
   <div class="tabs-nav">
     <button class="tab-btn active" id="tabBtnJournal" data-tab="tabJournal">Nhật ký giao dịch</button>
@@ -478,6 +479,11 @@
   var EQUITY_KEY = "mt5_journal_equity_v1";
   var THEME_KEY = "mt5_journal_theme_v1";
   var state = { deals: [], importLog: [], equitySnapshots: [] };
+
+  // Supabase Configuration
+  var SUPABASE_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im5rdmRxeXFqZGpsb2xqaXl0ZHFpIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODU0MTgxMjEsImV4cCI6MjEwMDk5NDEyMX0.46YR7vBVDjna_E9RpWuo2RcnwEU65QKNgX4pPVdLXLk";
+  var SUPABASE_URL = "https://nkvdqyqjdjlojliytdqi.supabase.co";
+  var supabaseClient = null;
   var tablePageSize = 100;
   var tableShown = 100;
   var currentStats = null;
@@ -528,6 +534,203 @@
       localStorage.setItem(EQUITY_KEY, JSON.stringify(state.equitySnapshots));
     }catch(e){
       showToast("Không thể lưu vào localStorage (có thể đầy dung lượng) — hãy xuất backup JSON.");
+    }
+    
+    // Tự động đẩy dữ liệu lên Supabase khi thay đổi
+    if (supabaseClient) {
+      pushDataToSupabase().catch(function(err) {
+        console.error("Supabase sync error:", err);
+      });
+    }
+  }
+
+  // ---------- Supabase Logic ----------
+  function initSupabaseClient() {
+    try {
+      if (window.supabase && typeof window.supabase.createClient === "function") {
+        supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+        console.log("Supabase Client initialized successfully.");
+      } else {
+        console.error("Supabase JS SDK was not loaded.");
+      }
+    } catch (e) {
+      console.error("Error initializing Supabase Client:", e);
+    }
+  }
+
+  async function pushDataToSupabase() {
+    if (!supabaseClient) return;
+    
+    try {
+      if (state.deals.length > 0) {
+        var { error: dealsError } = await supabaseClient
+          .from("deals")
+          .upsert(state.deals);
+        if (dealsError) throw dealsError;
+      }
+      
+      if (state.importLog.length > 0) {
+        var dbLogs = state.importLog.map(function(l) {
+          return {
+            file: l.file,
+            when_time: l.when,
+            total_in_file: l.totalInFile,
+            added: l.added,
+            skipped_dup: l.skippedDup
+          };
+        });
+        
+        var { error: delLogsError } = await supabaseClient
+          .from("import_logs")
+          .delete()
+          .neq("id", 0);
+        if (delLogsError) throw delLogsError;
+        
+        var { error: logsError } = await supabaseClient
+          .from("import_logs")
+          .insert(dbLogs);
+        if (logsError) throw logsError;
+      }
+      
+      if (state.equitySnapshots.length > 0) {
+        var dbSnapshots = state.equitySnapshots.map(function(s) {
+          return {
+            equity: s.equity,
+            balance: s.balance,
+            ts: s.ts,
+            file: s.file,
+            imported_at: s.importedAt
+          };
+        });
+        
+        var { error: delSnapError } = await supabaseClient
+          .from("equity_snapshots")
+          .delete()
+          .neq("id", 0);
+        if (delSnapError) throw delSnapError;
+        
+        var { error: snapError } = await supabaseClient
+          .from("equity_snapshots")
+          .insert(dbSnapshots);
+        if (snapError) throw snapError;
+      }
+      console.log("Supabase data pushed successfully.");
+    } catch (e) {
+      console.error("Supabase Push Error:", e);
+    }
+  }
+
+  async function pullDataFromSupabase() {
+    if (!supabaseClient) return;
+    
+    try {
+      var { data: dbDeals, error: dealsError } = await supabaseClient
+        .from("deals")
+        .select("*")
+        .order("ts", { ascending: true });
+      if (dealsError) throw dealsError;
+      
+      var { data: dbLogs, error: logsError } = await supabaseClient
+        .from("import_logs")
+        .select("*")
+        .order("created_at", { ascending: false });
+      if (logsError) throw logsError;
+      
+      var { data: dbSnapshots, error: snapError } = await supabaseClient
+        .from("equity_snapshots")
+        .select("*")
+        .order("ts", { ascending: true });
+      if (snapError) throw snapError;
+      
+      var mergedDealsCount = 0;
+      var existingDeals = {};
+      state.deals.forEach(function(d) {
+        existingDeals[d.id] = true;
+      });
+      
+      if (dbDeals && dbDeals.length > 0) {
+        dbDeals.forEach(function(d) {
+          var localDeal = {
+            id: d.id,
+            time: d.time,
+            ts: parseInt(d.ts),
+            symbol: d.symbol,
+            type: d.type,
+            direction: d.direction,
+            volume: parseFloat(d.volume),
+            price: parseFloat(d.price),
+            order: d.order,
+            commission: parseFloat(d.commission),
+            fee: parseFloat(d.fee),
+            swap: parseFloat(d.swap),
+            profit: parseFloat(d.profit),
+            balance: parseFloat(d.balance),
+            comment: d.comment || ""
+          };
+          
+          if (!existingDeals[localDeal.id]) {
+            state.deals.push(localDeal);
+            existingDeals[localDeal.id] = true;
+            mergedDealsCount++;
+          }
+        });
+        state.deals.sort(function(a, b) { return a.ts - b.ts; });
+      }
+      
+      var localLogMap = {};
+      state.importLog.forEach(function(l) {
+        localLogMap[l.file + "_" + l.when] = true;
+      });
+      if (dbLogs && dbLogs.length > 0) {
+        dbLogs.forEach(function(l) {
+          var key = l.file + "_" + l.when_time;
+          if (!localLogMap[key]) {
+            state.importLog.push({
+              file: l.file,
+              when: l.when_time,
+              totalInFile: l.total_in_file,
+              added: l.added,
+              skippedDup: l.skipped_dup
+            });
+            localLogMap[key] = true;
+          }
+        });
+        state.importLog.sort(function(a, b) { return new Date(b.when).getTime() - new Date(a.when).getTime(); });
+      }
+      
+      var localSnapMap = {};
+      state.equitySnapshots.forEach(function(s) {
+        localSnapMap[s.file + "_" + s.ts] = true;
+      });
+      if (dbSnapshots && dbSnapshots.length > 0) {
+        dbSnapshots.forEach(function(s) {
+          var key = s.file + "_" + s.ts;
+          if (!localSnapMap[key]) {
+            state.equitySnapshots.push({
+              equity: parseFloat(s.equity),
+              balance: parseFloat(s.balance),
+              ts: parseInt(s.ts),
+              file: s.file,
+              importedAt: parseInt(s.imported_at)
+            });
+            localSnapMap[key] = true;
+          }
+        });
+        state.equitySnapshots.sort(function(a, b) { return a.ts - b.ts; });
+      }
+      
+      if (mergedDealsCount > 0) {
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(state.deals));
+          localStorage.setItem(LOG_KEY, JSON.stringify(state.importLog));
+          localStorage.setItem(EQUITY_KEY, JSON.stringify(state.equitySnapshots));
+        } catch (e) {}
+        renderAll();
+        showToast("Đã tự động đồng bộ " + mergedDealsCount + " lệnh mới từ Cloud.");
+      }
+      console.log("Supabase data pulled successfully.");
+    } catch (e) {
+      console.error("Supabase Pull Error:", e);
     }
   }
 
@@ -1497,13 +1700,6 @@
   document.getElementById("btnExplain").addEventListener("click", toggleExplain);
   document.getElementById("btnTheme").addEventListener("click", toggleTheme);
 
-  document.getElementById("btnExportJson").addEventListener("click", exportJson);
-  document.getElementById("btnImportJson").addEventListener("click", function(){ document.getElementById("jsonInput").click(); });
-  document.getElementById("jsonInput").addEventListener("change", function(e){
-    if(e.target.files[0]) importJson(e.target.files[0]);
-    e.target.value = "";
-  });
-
   document.getElementById("btnClear").addEventListener("click", function(){
     if(confirm("Xóa toàn bộ dữ liệu đã import? Hành động này không thể hoàn tác (hãy xuất backup JSON trước nếu cần).")){
       state.deals = [];
@@ -1558,6 +1754,8 @@
   renderExplainList();
   loadState();
   renderAll();
+  initSupabaseClient();
+  pullDataFromSupabase(); // Tự động đồng bộ kéo dữ liệu khi tải trang
 })();
 </script>
 
