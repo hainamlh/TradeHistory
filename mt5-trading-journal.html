@@ -324,7 +324,7 @@
 
     <div class="panel">
       <div class="panel-head">
-        <h3>Đường cong vốn (Equity Curve)</h3>
+        <h3>Đường cong vốn (Equity Curve) — chỉ tính kết quả giao dịch</h3>
         <div class="head-actions">
           <span class="meta" id="equityMeta"></span>
           <button class="small ghost" id="btnResetZoom">Xem toàn bộ</button>
@@ -679,10 +679,6 @@
     var rr = avgLoss ? (avgWin/avgLoss) : 0;
     var expectancy = (winRate/100*avgWin) - ((1-winRate/100)*avgLoss);
 
-    var equity = deals.map(function(d){ return { ts:d.ts, time:d.time, balance:d.balance }; });
-    var startBalance = equity.length ? equity[0].balance : 0;
-    var currentBalance = equity.length ? equity[equity.length-1].balance : 0;
-
     // Type = balance -> nop tien (profit > 0) hoac rut tien (profit < 0).
     // Von thuc nop vao tai khoan = tong tat ca cac lan nop tru di cac lan rut,
     // dung lam mau so tinh % Tong loi nhuan thay vi chi lay so du dau tien.
@@ -691,12 +687,67 @@
     var totalWithdrawals = balanceOps.filter(function(d){ return d.profit < 0; }).reduce(function(s,d){ return s+d.profit; }, 0); // am
     var netDeposited = totalDeposits + totalWithdrawals;
 
-    var peak = -Infinity, maxDD = 0, maxDDPct = 0;
+    // ---- Duong cong equity: chi phan anh KET QUA GIAO DICH, KHONG tinh cac lan nap/rut ----
+    // So du tho (d.balance) nhay vot moi khi nap tien -> lam duong equity va drawdown hieu nham
+    // khoan nap la loi nhuan. Vi vay:
+    //   - Von goc = so du NGAY TRUOC lenh giao dich dau tien (gom tat ca cac lan nap truoc khi trade).
+    //   - Cac lan nap/rut SAU khi da trade = dong tien giua chung, cong/tru vao "duong von" (baseline)
+    //     chu khong tinh la loi nhuan, va khong tao buoc nhay tren duong equity giao dich.
+    //   - equity.balance (duong ve) = von goc + PL giao dich cong don => muot, khong nhay khi nap.
+    //   - capitalBase (de tinh drawdown %) = von goc + net flow sau trade => phan anh dung quy mo von.
+
+    // Moc lenh giao dich dau tien
+    var firstTradeIdx = -1;
+    for(var fi=0; fi<deals.length; fi++){
+      if(deals[fi].type === "buy" || deals[fi].type === "sell"){ firstTradeIdx = fi; break; }
+    }
+    // Von goc = so du ngay truoc lenh dau (gom moi lan nap truoc do). Neu chua co lenh nao,
+    // lay tong net cac dong nap/rut, hoac so du dong dau tien.
+    var preTradeNet = 0;
+    for(var pi=0; pi<deals.length; pi++){
+      var dd0 = deals[pi];
+      if(firstTradeIdx >= 0 && pi >= firstTradeIdx) break;
+      if(dd0.type === "balance") preTradeNet += dd0.profit;
+    }
+    var initialCapital = preTradeNet;
+    if(initialCapital <= 0){
+      // du phong: neu khong doc duoc dong nap truoc trade, dung so du dong dau tien
+      initialCapital = deals.length ? deals[0].balance : 0;
+    }
+
+    var equity = [];
+    var cumNetAfter = 0; // net nap/rut sau khi da bat dau trade
+    var cumTradePL = 0;  // loi nhuan giao dich cong don (khong gom nap/rut)
+    for(var ei=0; ei<deals.length; ei++){
+      var d = deals[ei];
+      var afterFirstTrade = (firstTradeIdx >= 0 && ei >= firstTradeIdx);
+      if(d.type === "balance"){
+        if(afterFirstTrade) cumNetAfter += d.profit; // nap/rut giua chung
+        // nap/rut truoc trade da nam trong initialCapital, bo qua
+      } else {
+        cumTradePL += (d.profit + d.commission + d.fee + d.swap);
+      }
+      var capitalBase = initialCapital + cumNetAfter; // von thuc te tai thoi diem nay
+      equity.push({
+        ts:d.ts, time:d.time,
+        balance: initialCapital + cumTradePL,   // duong ve: muot, khong nhay khi nap
+        tradePL: cumTradePL,
+        realBalance: capitalBase + cumTradePL,   // so du that (gom nap/rut) de doi chieu
+        capitalBase: capitalBase                 // quy mo von de tinh drawdown %
+      });
+    }
+    var startBalance = initialCapital;
+    var currentBalance = deals.length ? deals[deals.length-1].balance : 0;
+
+    // Drawdown: bien do sut giam cua PL giao dich cong don tinh tu dinh, do bang % tren QUY MO VON
+    // thuc te tai dinh (capitalBase), khong phai tren equity giao dich nho xiu ban dau -> % hop ly.
+    var peakPL = -Infinity, peakCapital = 0, maxDD = 0, maxDDPct = 0;
     for(var i=0;i<equity.length;i++){
-      var b = equity[i].balance;
-      if(b > peak) peak = b;
-      var dd = peak - b;
-      var ddPct = peak > 0 ? (dd/peak*100) : 0;
+      var pl = equity[i].tradePL;
+      if(pl > peakPL){ peakPL = pl; peakCapital = equity[i].capitalBase; }
+      var dd = peakPL - pl;              // so tien sut giam tu dinh PL
+      var basePeak = (peakCapital + peakPL) > 0 ? (peakCapital + peakPL) : peakCapital;
+      var ddPct = basePeak > 0 ? (dd/basePeak*100) : 0;
       if(dd > maxDD) maxDD = dd;
       if(ddPct > maxDDPct) maxDDPct = ddPct;
     }
@@ -996,7 +1047,11 @@
       var pxRatio = contRect.width/W;
       tooltip.style.left = (px*pxRatio) + "px";
       tooltip.style.top = (py*pxRatio) + "px";
-      tooltip.innerHTML = "<b>"+pt.time+"</b><br>Số dư: "+fmtCurrency(pt.balance, false);
+      var tipHtml = "<b>"+pt.time+"</b><br>Equity giao dịch: "+fmtCurrency(pt.balance, false);
+      if(pt.realBalance !== undefined && Math.abs(pt.realBalance - pt.balance) > 0.005){
+        tipHtml += "<br><span style='opacity:.75'>Số dư thực (gồm nạp/rút): "+fmtCurrency(pt.realBalance, false)+"</span>";
+      }
+      tooltip.innerHTML = tipHtml;
       tooltip.style.display = "block";
     });
     svgEl.addEventListener("mouseleave", function(){ if(!isDraggingEq) hideHover(); });
@@ -1391,7 +1446,7 @@
   // ---------- Giai thich (panel inline) ----------
   var EXPLAIN_ITEMS = [
     { term:"Tổng lợi nhuận", def:"Phần trăm hiển thị = lợi nhuận ròng các lệnh đã đóng chia cho tổng vốn thực đã nạp vào tài khoản (cộng dồn mọi lần nạp, trừ đi các lần rút — không chỉ lấy lần nạp đầu tiên). Số tiền tuyệt đối ghi ở dòng dưới." },
-    { term:"Drawdown", def:"Mức sụt giảm lớn nhất của số dư, tính từ đỉnh vốn cao nhất từng đạt được cho tới đáy thấp nhất sau đó, theo % và số tiền tuyệt đối." },
+    { term:"Drawdown", def:"Mức sụt giảm lớn nhất của đường equity giao dịch (chỉ tính lãi/lỗ giao dịch, đã loại bỏ các lần nạp/rút vốn), tính từ đỉnh cao nhất từng đạt được cho tới đáy thấp nhất sau đó, theo % và số tiền tuyệt đối." },
     { term:"Tỷ lệ thắng (Win rate)", def:"Số lệnh có lãi chia cho tổng số lệnh đã đóng. Lệnh hòa vốn không tính là thắng." },
     { term:"Lãi TB / lệnh", def:"Mức lãi trung bình của một lệnh thắng, tính theo % trên vốn trung bình của tài khoản trong suốt lịch sử đã import." },
     { term:"Lỗ TB / lệnh", def:"Mức lỗ trung bình của một lệnh thua, tính theo % trên vốn trung bình của tài khoản trong suốt lịch sử đã import." },
@@ -1637,31 +1692,38 @@
   function getInitialAssetUsd(){
     var deals = (typeof window.getJournalDeals === "function") ? window.getJournalDeals() : [];
     if(deals && deals.length > 0){
-      // Tìm giao dịch đóng lệnh đầu tiên (hướng chứa "out") để xác định số dư ngay trước lệnh đó
-      var firstClosed = null;
+      // Moc lenh giao dich dau tien (mo hoac dong)
+      var firstTradeIdx = -1;
       for(var i=0; i<deals.length; i++){
-        var d = deals[i];
-        if((d.type === "buy" || d.type === "sell") && /out/.test(d.direction || "")){
-          firstClosed = d;
-          break;
+        if(deals[i].type === "buy" || deals[i].type === "sell"){ firstTradeIdx = i; break; }
+      }
+      // Von goc = tong cac lan nap/rut TRUOC lenh dau tien (gom moi lan nap ban dau).
+      if(firstTradeIdx > 0){
+        var preNet = 0, hasBalance = false;
+        for(var j=0; j<firstTradeIdx; j++){
+          if(deals[j].type === "balance"){ preNet += (parseFloat(deals[j].profit)||0); hasBalance = true; }
         }
+        if(hasBalance && preNet > 0) return preNet;
+      }
+      // Du phong: so du ngay truoc lenh dong dau tien = so du - PL cua lenh do
+      var firstClosed = null;
+      for(var k=0; k<deals.length; k++){
+        var d = deals[k];
+        if((d.type === "buy" || d.type === "sell") && /out/.test(d.direction || "")){ firstClosed = d; break; }
       }
       if(firstClosed){
         var balance = parseFloat(firstClosed.balance);
         if(!isNaN(balance)){
-          var pnl = (parseFloat(firstClosed.profit) || 0) + 
-                    (parseFloat(firstClosed.swap) || 0) + 
-                    (parseFloat(firstClosed.commission) || 0) + 
+          var pnl = (parseFloat(firstClosed.profit) || 0) +
+                    (parseFloat(firstClosed.swap) || 0) +
+                    (parseFloat(firstClosed.commission) || 0) +
                     (parseFloat(firstClosed.fee) || 0);
           return balance - pnl;
         }
       }
-      // Nếu không có giao dịch đóng lệnh nào, lấy số dư của giao dịch đầu tiên (thường là nạp tiền)
       var first = deals[0];
       var firstBal = parseFloat(first.balance);
-      if(!isNaN(firstBal)){
-        return firstBal;
-      }
+      if(!isNaN(firstBal)){ return firstBal; }
     }
     return GM_DATA.meta.initialAssetUsd || 2000;
   }
@@ -1777,6 +1839,36 @@
     return dates.map(function(k){ return { dateStr:k, profitUsd:byDate[k] }; });
   }
 
+  // Tong nap/rut theo tung ngay (USD). profit>0 = nap them, profit<0 = rut bot.
+  // Dung de dieu chinh "Tai san" trong mo hinh tang truong dung bang von thuc te, khong tinh la loi nhuan.
+  // Thoi diem mo lenh dau tien (deal giao dich dau tien, khong tinh cac dong nap/rut).
+  // Cac lan nap TRUOC moc nay = von goc, da nam trong getInitialAssetUsd() -> khong inject lai.
+  // Chi cac lan nap/rut SAU moc nay moi la "dong tien giua chung" can dieu chinh tai san.
+  function getFirstTradeTs(){
+    if(typeof window.getJournalDeals !== "function") return Infinity;
+    var deals = window.getJournalDeals() || [];
+    for(var i=0;i<deals.length;i++){
+      var d = deals[i];
+      if(d.type === "buy" || d.type === "sell"){ return d.ts; }
+    }
+    return Infinity;
+  }
+
+  function getDailyCashFlowUsd(){
+    if(typeof window.getJournalDeals !== "function") return {};
+    var deals = window.getJournalDeals() || [];
+    var firstTradeTs = getFirstTradeTs();
+    var byDate = {};
+    deals.forEach(function(d){
+      if(d.type !== "balance") return;
+      if(d.ts < firstTradeTs) return; // nap/rut truoc lenh dau = von goc, bo qua
+      var key = String(d.time).slice(0,10);
+      if(!byDate[key]) byDate[key] = 0;
+      byDate[key] += d.profit; // nap (+) / rut (-)
+    });
+    return byDate;
+  }
+
   function yearLabelFor(monthCounter){
     return "Năm " + (Math.floor((monthCounter-1)/12) + 1);
   }
@@ -1803,6 +1895,8 @@
       slots[idx].actualDate = actual[k].dateStr;
     }
 
+    var cashFlow = getDailyCashFlowUsd(); // { "YYYY.MM.DD": usdAmount } nap(+)/rut(-)
+    var appliedCash = {}; // danh dau ngay da ap dung dong tien de khong tinh trung
     var asset = getInitialAssetVnd();
     var monthStartAsset = {};
     var curMonth = null;
@@ -1810,7 +1904,14 @@
     slots.forEach(function(s){
       if(s.monthIdx !== curMonth){ monthStartAsset[s.monthIdx] = asset; curMonth = s.monthIdx; }
       var pctUsed, profitVnd, source, dateLabel;
+      var cashVnd = 0;
       if(s.actualProfitUsd !== undefined){
+        // Neu ngay nay co nap/rut tien: cong vao tai san TRUOC khi tinh % (khong tinh la loi nhuan)
+        if(s.actualDate && cashFlow[s.actualDate] && !appliedCash[s.actualDate]){
+          cashVnd = cashFlow[s.actualDate] * fxRate;
+          appliedCash[s.actualDate] = true;
+        }
+        asset = asset + cashVnd; // dieu chinh von goc theo dong tien thuc
         profitVnd = s.actualProfitUsd * fxRate;
         pctUsed = asset > 0 ? profitVnd/asset : 0;
         source = "actual";
@@ -1825,7 +1926,7 @@
       var assetBefore = asset;
       asset = asset + profitVnd;
       results.push({
-        monthIdx:s.monthIdx, d:s.d, pctUsed:pctUsed, profitVnd:profitVnd,
+        monthIdx:s.monthIdx, d:s.d, pctUsed:pctUsed, profitVnd:profitVnd, cashVnd:cashVnd,
         assetBefore:assetBefore, assetAfter:asset, source:source, dateLabel:dateLabel
       });
     });
@@ -1849,11 +1950,17 @@
       var lastSummary = summaries[summaries.length-1];
       for(var e=tradableIdx.length; e<actual.length; e++){
         var a = actual[e];
+        var cashVnd3 = 0;
+        if(a.dateStr && cashFlow[a.dateStr] && !appliedCash[a.dateStr]){
+          cashVnd3 = cashFlow[a.dateStr] * fxRate;
+          appliedCash[a.dateStr] = true;
+        }
+        asset = asset + cashVnd3;
         var profitVnd3 = a.profitUsd * fxRate;
         var pctUsed3 = asset > 0 ? profitVnd3/asset : 0;
         var assetBefore3 = asset;
         asset = asset + profitVnd3;
-        var extraDay = { monthIdx:lastSummary.monthIndex, d:lastSummary.days.length+1, pctUsed:pctUsed3, profitVnd:profitVnd3, assetBefore:assetBefore3, assetAfter:asset, source:"actual", dateLabel:a.dateStr };
+        var extraDay = { monthIdx:lastSummary.monthIndex, d:lastSummary.days.length+1, pctUsed:pctUsed3, profitVnd:profitVnd3, cashVnd:cashVnd3, assetBefore:assetBefore3, assetAfter:asset, source:"actual", dateLabel:a.dateStr };
         lastSummary.days.push(extraDay);
         lastSummary.endAsset = asset;
         lastSummary.hasActual = true;
@@ -1949,9 +2056,13 @@
     var body = document.getElementById("gmDayBody");
     body.innerHTML = m.days.map(function(s){
       var pnlCls = s.source !== "actual" ? "pnl-plan" : (s.profitVnd > 0 ? "pnl-pos" : (s.profitVnd < 0 ? "pnl-neg" : ""));
-      var srcHtml = s.source === "actual"
+      var cashNote = (s.cashVnd && Math.abs(s.cashVnd) > 0)
+        ? " <span class=\"src-pill\" style=\"background:rgba(59,130,246,.15);color:#3b82f6\" title=\"Điều chỉnh vốn (nạp/rút) — không tính là lợi nhuận\">" +
+          (s.cashVnd > 0 ? "Nạp " : "Rút ") + moneySigned(s.cashVnd) + "</span>"
+        : "";
+      var srcHtml = (s.source === "actual"
         ? "<span class=\"src-pill actual\">Thực tế" + (s.dateLabel ? " · " + s.dateLabel : "") + "</span>"
-        : "<span class=\"src-pill plan\">Kế hoạch</span>";
+        : "<span class=\"src-pill plan\">Kế hoạch</span>") + cashNote;
       return "<tr>" +
         "<td>Ngày " + s.d + "</td>" +
         "<td class=\"" + pnlCls + "\">" + fmtPct(s.pctUsed) + "</td>" +
