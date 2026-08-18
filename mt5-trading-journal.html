@@ -1899,10 +1899,11 @@
     var appliedCash = {}; // danh dau ngay da ap dung dong tien de khong tinh trung
     var asset = getInitialAssetVnd();
     var monthStartAsset = {};
+    var monthCumCash = {}; // tong nap/rut cong don trong thang (VND) tinh den moi ngay
     var curMonth = null;
     var results = [];
     slots.forEach(function(s){
-      if(s.monthIdx !== curMonth){ monthStartAsset[s.monthIdx] = asset; curMonth = s.monthIdx; }
+      if(s.monthIdx !== curMonth){ monthStartAsset[s.monthIdx] = asset; monthCumCash[s.monthIdx] = 0; curMonth = s.monthIdx; }
       var pctUsed, profitVnd, source, dateLabel;
       var cashVnd = 0;
       if(s.actualProfitUsd !== undefined){
@@ -1912,6 +1913,7 @@
           appliedCash[s.actualDate] = true;
         }
         asset = asset + cashVnd; // dieu chinh von goc theo dong tien thuc
+        monthCumCash[s.monthIdx] += cashVnd;
         profitVnd = s.actualProfitUsd * fxRate;
         pctUsed = asset > 0 ? profitVnd/asset : 0;
         source = "actual";
@@ -1927,6 +1929,7 @@
       asset = asset + profitVnd;
       results.push({
         monthIdx:s.monthIdx, d:s.d, pctUsed:pctUsed, profitVnd:profitVnd, cashVnd:cashVnd,
+        cumCash: monthCumCash[s.monthIdx],
         assetBefore:assetBefore, assetAfter:asset, source:source, dateLabel:dateLabel
       });
     });
@@ -1935,19 +1938,24 @@
       var daySlots = results.filter(function(s){ return s.monthIdx === m.monthIndex; });
       var startAsset = monthStartAsset[m.monthIndex];
       var endAsset = daySlots.length ? daySlots[daySlots.length-1].assetAfter : startAsset;
+      var monthCash = daySlots.length ? (daySlots[daySlots.length-1].cumCash || 0) : 0;
       var target = startAsset * (1 + GM_DATA.meta.monthlyTargetPct);
-      var status = (endAsset >= target - 1e-6) ? "Hit" : "notHit";
+      // "Hit" so sanh tang truong do GIAO DICH (loai tru nap/rut) voi muc tieu
+      var endAssetTradingOnly = endAsset - monthCash;
+      var status = (endAssetTradingOnly >= target - 1e-6) ? "Hit" : "notHit";
       var withdraw = target - startAsset;
       var hasActual = daySlots.some(function(s){ return s.source === "actual"; });
       return {
         year: yearLabelFor(m.monthIndex), monthIndex: m.monthIndex, startAsset:startAsset, target:target,
-        endAsset:endAsset, status:status, withdraw:withdraw, hasActual:hasActual, days:daySlots
+        endAsset:endAsset, monthCash:monthCash, endAssetTradingOnly:endAssetTradingOnly,
+        status:status, withdraw:withdraw, hasActual:hasActual, days:daySlots
       };
     });
 
     // Neu con lenh thuc te chua duoc gan (vuot qua 480 o ke hoach), noi them vao cuoi thang cuoi cung
     if(actual.length > tradableIdx.length){
       var lastSummary = summaries[summaries.length-1];
+      var overflowCumCash = lastSummary.days.length ? (lastSummary.days[lastSummary.days.length-1].cumCash || 0) : 0;
       for(var e=tradableIdx.length; e<actual.length; e++){
         var a = actual[e];
         var cashVnd3 = 0;
@@ -1956,15 +1964,18 @@
           appliedCash[a.dateStr] = true;
         }
         asset = asset + cashVnd3;
+        overflowCumCash += cashVnd3;
         var profitVnd3 = a.profitUsd * fxRate;
         var pctUsed3 = asset > 0 ? profitVnd3/asset : 0;
         var assetBefore3 = asset;
         asset = asset + profitVnd3;
-        var extraDay = { monthIdx:lastSummary.monthIndex, d:lastSummary.days.length+1, pctUsed:pctUsed3, profitVnd:profitVnd3, cashVnd:cashVnd3, assetBefore:assetBefore3, assetAfter:asset, source:"actual", dateLabel:a.dateStr };
+        var extraDay = { monthIdx:lastSummary.monthIndex, d:lastSummary.days.length+1, pctUsed:pctUsed3, profitVnd:profitVnd3, cashVnd:cashVnd3, cumCash:overflowCumCash, assetBefore:assetBefore3, assetAfter:asset, source:"actual", dateLabel:a.dateStr };
         lastSummary.days.push(extraDay);
         lastSummary.endAsset = asset;
+        lastSummary.monthCash = overflowCumCash;
+        lastSummary.endAssetTradingOnly = asset - overflowCumCash;
         lastSummary.hasActual = true;
-        lastSummary.status = (lastSummary.endAsset >= lastSummary.target - 1e-6) ? "Hit" : "notHit";
+        lastSummary.status = (lastSummary.endAssetTradingOnly >= lastSummary.target - 1e-6) ? "Hit" : "notHit";
       }
     }
 
@@ -2015,11 +2026,21 @@
     var body = document.getElementById("gmMonthBody");
     var rows = [];
     var lastYear = null;
+    // Tang truong luy ke = Loi nhuan giao dich luy ke / Von binh quan gia quyen theo ngay (toan bo lich su).
+    var cumProfitAll = 0, cumCapitalAll = 0, dayCountAll = 0;
     blended.summaries.forEach(function(m){
       if(m.year !== lastYear){
         rows.push("<tr class=\"gm-year-sep\"><td colspan=\"7\">" + m.year + "</td></tr>");
         lastYear = m.year;
       }
+      // Cong don von & loi nhuan cua tung ngay trong thang nay vao chuoi luy ke toan bo
+      (m.days || []).forEach(function(s){
+        cumProfitAll += s.profitVnd;
+        cumCapitalAll += s.assetBefore;
+        dayCountAll += 1;
+      });
+      var avgCapAll = dayCountAll ? (cumCapitalAll / dayCountAll) : 0;
+      var growthPct = avgCapAll > 0 ? (cumProfitAll / avgCapAll) : 0;
       var statusHtml = m.status === "Hit"
         ? "<span class=\"status-pill hit\">Hit</span>"
         : "<span class=\"status-pill nothit\">notHit</span>";
@@ -2031,7 +2052,7 @@
         "<td>" + money(m.startAsset) + "</td>" +
         "<td>" + money(m.target) + "</td>" +
         "<td>" + money(m.endAsset) + "</td>" +
-        "<td>" + fmtPct((m.endAsset/getInitialAssetVnd())-1) + "</td>" +
+        "<td>" + fmtPct(growthPct) + "</td>" +
         "<td>" + statusHtml + "</td>" +
         "<td>" + (m.withdraw > 0 ? money(m.withdraw) : "—") + "</td>" +
         "</tr>"
@@ -2054,6 +2075,10 @@
     var m = blended.summaries[selectedMonthIndex-1];
     document.getElementById("gmDetailMonthLabel").textContent = m.year + " · Tháng " + m.monthIndex;
     var body = document.getElementById("gmDayBody");
+    // Lai kep % (luy ke tu dau thang) = Loi nhuan giao dich luy ke / Von binh quan gia quyen theo ngay.
+    // Von binh quan = trung binh von lam viec (assetBefore) cua tung ngay giao dich, moi ngay trong so 1.
+    // Cach nay cong bang khi nap/rut giua thang: von moi nap chi tinh cho so ngay no thuc su ton tai.
+    var cumProfit = 0, cumCapital = 0, dayCount = 0;
     body.innerHTML = m.days.map(function(s){
       var pnlCls = s.source !== "actual" ? "pnl-plan" : (s.profitVnd > 0 ? "pnl-pos" : (s.profitVnd < 0 ? "pnl-neg" : ""));
       var cashNote = (s.cashVnd && Math.abs(s.cashVnd) > 0)
@@ -2063,12 +2088,20 @@
       var srcHtml = (s.source === "actual"
         ? "<span class=\"src-pill actual\">Thực tế" + (s.dateLabel ? " · " + s.dateLabel : "") + "</span>"
         : "<span class=\"src-pill plan\">Kế hoạch</span>") + cashNote;
+
+      // Cong don von & loi nhuan den ngay nay
+      cumProfit += s.profitVnd;
+      cumCapital += s.assetBefore; // von lam viec trong ngay (da gom nap/rut trong ngay)
+      dayCount += 1;
+      var avgCapital = dayCount ? (cumCapital / dayCount) : 0;
+      var compoundPct = avgCapital > 0 ? (cumProfit / avgCapital) : 0;
+
       return "<tr>" +
         "<td>Ngày " + s.d + "</td>" +
         "<td class=\"" + pnlCls + "\">" + fmtPct(s.pctUsed) + "</td>" +
         "<td class=\"" + pnlCls + "\">" + moneySigned(s.profitVnd) + "</td>" +
         "<td>" + money(s.assetAfter) + "</td>" +
-        "<td style=\"text-align:center\">" + fmtPct((s.assetAfter/m.startAsset)-1) + "</td>" +
+        "<td style=\"text-align:center\">" + fmtPct(compoundPct) + "</td>" +
         "<td style=\"text-align:center\">" + srcHtml + "</td>" +
         "</tr>";
     }).join("");
