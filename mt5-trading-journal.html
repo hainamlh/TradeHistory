@@ -950,7 +950,7 @@
     var expectancyPct = base ? (stats.expectancy/base*100) : 0;
     var lossStreakShare = stats.closed.length ? (stats.maxLossStreak/stats.closed.length*100) : 0;
     
-    var depositSub = "Nạp " + fmtCurrency(stats.totalDeposits, false) +
+    var depositSub = "" + fmtCurrency(stats.totalDeposits, false) +
       (stats.totalWithdrawals ? ", đã rút " + fmtCurrency(Math.abs(stats.totalWithdrawals), false) : "");
 
     var cards = [
