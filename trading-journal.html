@@ -1,0 +1,2592 @@
+  <!DOCTYPE html>
+<html lang="vi" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Trading Journal</title>
+<link rel="icon" type="image/png" href="Tiltle web.png">
+
+<style>
+  :root{
+    --bg: #0B0F14;
+    --panel: #121821;
+    --panel-2: #161E29;
+    --line: #232C39;
+    --text: #E8EDF3;
+    --muted: #7C8A9C;
+    --muted-2: #576474;
+    --gold: #D4AF37;
+    --gold-soft: #8A7530;
+    --up: #26A69A;
+    --down: #EF5350;
+    --mono: ui-monospace, "SF Mono", "JetBrains Mono", Menlo, Consolas, monospace;
+    --sans: -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  }
+  html[data-theme="light"]{
+    --bg: #F3F4F0;
+    --panel: #FFFFFF;
+    --panel-2: #EEF0EA;
+    --line: #DCE0DA;
+    --text: #171B1F;
+    --muted: #5C6670;
+    --muted-2: #7C8791;
+    --gold: #A9790C;
+    --gold-soft: #C9A227;
+    --up: #0E8F73;
+    --down: #D0463C;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      radial-gradient(1200px 600px at 15% -10%, rgba(212,175,55,0.06), transparent 60%),
+      var(--bg);
+    color:var(--text);
+    font-family:var(--sans);
+    -webkit-font-smoothing:antialiased;
+    min-height:100vh;
+    transition:background .15s, color .15s;
+  }
+  .wrap{max-width:1180px;margin:0 auto;padding:28px 20px 80px;}
+
+  /* Header */
+  header.top{
+    display:flex; justify-content:space-between; align-items:flex-end;
+    gap:20px; margin-bottom:26px; flex-wrap:wrap;
+    border-bottom:1px solid var(--line); padding-bottom:18px;
+  }
+  .brand-eyebrow{
+    font-family:var(--mono); font-size:12px; letter-spacing:.14em; text-transform:uppercase;
+    color:var(--gold); margin:0 0 6px;
+  }
+  .brand-title{ font-size:27px; font-weight:700; margin:0; letter-spacing:-0.01em; }
+  .brand-sub{ font-size:14px; color:var(--muted); margin:4px 0 0; font-family:var(--mono); }
+  .top-actions{ display:flex; gap:8px; flex-wrap:wrap; align-items:center; }
+
+  button, .btn{
+    font-family:var(--sans); font-size:14px; font-weight:600; cursor:pointer;
+    border-radius:7px; border:1px solid var(--line); background:var(--panel-2);
+    color:var(--text); padding:9px 14px; transition:border-color .15s, background .15s;
+  }
+  button:hover, .btn:hover{ border-color:var(--gold-soft); background:var(--panel); }
+  button.primary{ background:var(--gold); color:#1a1406; border-color:var(--gold); }
+  button.primary:hover{ background:var(--gold); opacity:.9; }
+  button.ghost{ background:transparent; }
+  button.danger:hover{ border-color:var(--down); color:var(--down); }
+  button:focus-visible, a:focus-visible, select:focus-visible, input:focus-visible{
+    outline:2px solid var(--gold); outline-offset:2px;
+  }
+  button.small{ padding:6px 11px; font-size:13px; }
+  button.seg{ padding:6px 12px; font-size:13px; }
+  button.seg.active{ background:var(--gold); color:#1a1406; border-color:var(--gold); }
+  button:disabled{ opacity:.35; cursor:not-allowed; }
+  button:disabled:hover{ border-color:var(--line); background:var(--panel-2); }
+
+  /* Empty state / dropzone */
+  #dropzone{
+    border:1.5px dashed var(--line); border-radius:12px; padding:56px 24px;
+    text-align:center; margin-top:10px; transition:border-color .15s, background .15s;
+  }
+  #dropzone.drag{ border-color:var(--gold); background:rgba(212,175,55,0.05); }
+  #dropzone h2{ font-size:19px; margin:0 0 8px; }
+  #dropzone p{ color:var(--muted); font-size:14.5px; margin:0 0 18px; line-height:1.6; }
+  #dropzone .hint{ font-family:var(--mono); font-size:12.5px; color:var(--muted-2); margin-top:14px; }
+
+  /* KPI grid */
+  .kpi-grid{
+    display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin:16px 0;
+  }
+  @media (max-width:820px){ .kpi-grid{ grid-template-columns:repeat(2,1fr); } }
+  .kpi{
+    background:var(--panel); border:1px solid var(--line); border-radius:8px;
+    padding:10px 12px 10px;
+    text-align:center;
+  }
+  .kpi .label{ font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); font-family:var(--mono); }
+  .kpi .value{ font-family:var(--mono); font-size:19px; font-weight:600; margin-top:6px; }
+  .kpi .sub{ font-size:12.5px; color:#a0aabb; margin-top:3px; font-family:var(--mono); }
+  .kpi .value.up{ color:var(--up); }
+  .kpi .value.down{ color:var(--down); }
+
+  /* Panels */
+  .panel{
+    background:var(--panel); border:1px solid var(--line); border-radius:12px;
+    padding:20px 20px 18px; margin-bottom:16px;
+  }
+  .panel-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; gap:10px; flex-wrap:wrap; }
+  .panel-head h3{ font-size:15px; margin:0; letter-spacing:.02em; }
+  .panel-head .meta{ font-family:var(--mono); font-size:12.5px; color:var(--muted); }
+  .panel-head .head-actions{ display:flex; gap:8px; align-items:center; }
+
+  .grid-2{ display:grid; grid-template-columns:1.6fr 1fr; gap:16px; }
+  @media (max-width:900px){ .grid-2{ grid-template-columns:1fr; } }
+
+  /* Chart containers */
+  .chart-container{ position:relative; }
+  .equity-svg{ width:100%; height:auto; display:block; }
+  .axis-label{ font-family:var(--mono); font-size:11px; fill:var(--muted-2); }
+  .chart-tooltip, .eq-tooltip{
+    position:absolute; pointer-events:none; transform:translate(-50%,-115%);
+    background:var(--panel-2); border:1px solid var(--gold-soft); border-radius:7px;
+    padding:6px 10px; font-size:12.5px; font-family:var(--mono); white-space:nowrap;
+    box-shadow:0 6px 18px rgba(0,0,0,.35); z-index:5; color:var(--text);
+  }
+  .zoom-hint{ font-family:var(--mono); font-size:12px; color:var(--muted-2); margin-top:8px; text-align:right; }
+  .seg-row{ display:flex; gap:6px; margin-bottom:12px; }
+
+  /* Symbol breakdown */
+  .sym-row{ display:grid; grid-template-columns:1fr 130px 80px; align-items:center; gap:10px; padding:8px 0; font-size:13.5px; }
+  .sym-name{ font-family:var(--mono); font-weight:600; text-align:left; }
+  .sym-pnl{ font-family:var(--mono); text-align:right; }
+  .sym-wr{ font-family:var(--mono); text-align:right; color:var(--muted); }
+
+  /* Insights */
+  .insight{
+    display:flex; gap:10px; padding:11px 0; border-bottom:1px solid var(--line);
+    font-size:14px; line-height:1.55;
+  }
+  .insight:last-child{ border-bottom:none; }
+  .insight .tag{
+    flex:0 0 auto; font-family:var(--mono); font-size:10.5px; text-transform:uppercase;
+    letter-spacing:.06em; padding:3px 7px; border-radius:4px; height:fit-content; margin-top:2px;
+  }
+  .tag.warn{ background:rgba(239,83,80,0.14); color:var(--down); }
+  .tag.note{ background:rgba(212,175,55,0.14); color:var(--gold); }
+  .tag.good{ background:rgba(38,166,154,0.14); color:var(--up); }
+
+  /* Trade table */
+  .table-controls{ display:flex; gap:8px; margin-bottom:12px; flex-wrap:wrap; align-items:center; }
+  select, input[type=text]{
+    font-family:var(--sans); font-size:13.5px; background:var(--panel-2); color:var(--text);
+    border:1px solid var(--line); border-radius:7px; padding:8px 10px;
+  }
+  table{ width:100%; border-collapse:collapse; font-size:13.5px; }
+  thead th{
+    text-align:right; font-family:var(--mono); font-size:11.5px; text-transform:uppercase;
+    color:var(--muted); font-weight:600; padding:8px 8px; border-bottom:1px solid var(--line);
+    letter-spacing:.04em; white-space:nowrap;
+  }
+  thead th:first-child, thead th:nth-child(2), thead th:nth-child(3){ text-align:left; }
+  tbody td{ padding:7px 8px; text-align:right; border-bottom:1px solid var(--line); font-family:var(--mono); white-space:nowrap; }
+  tbody td:first-child, tbody td:nth-child(2), tbody td:nth-child(3){ text-align:left; }
+  tbody tr:hover{ background:var(--panel-2); }
+  .pnl-pos{ color:var(--up); }
+  .pnl-neg{ color:var(--down); }
+  .dir-buy{ color:var(--up); font-weight:600; }
+  .dir-sell{ color:var(--down); font-weight:600; }
+  .load-more{ display:block; margin:14px auto 0; }
+  .table-scroll{ overflow-x:auto; }
+
+  /* Import log */
+  .import-log{ font-family:var(--mono); font-size:12.5px; color:var(--muted); margin-top:10px; }
+  .import-log div{ padding:3px 0; }
+
+  footer.foot{
+    text-align:center; color:var(--muted-2); font-size:12.5px; font-family:var(--mono);
+    margin-top:34px;
+  }
+
+  .file-input-hidden{ display:none; }
+  #toast{
+    position:fixed; bottom:20px; left:50%; transform:translateX(-50%) translateY(20px);
+    background:var(--panel-2); border:1px solid var(--gold-soft); color:var(--text);
+    padding:10px 18px; border-radius:8px; font-size:14px; opacity:0; pointer-events:none;
+    transition:opacity .2s, transform .2s; z-index:50; box-shadow:0 8px 24px rgba(0,0,0,.4);
+  }
+  #toast.show{ opacity:1; transform:translateX(-50%) translateY(0); }
+
+
+  @media (prefers-reduced-motion: reduce){
+    *{ transition:none !important; }
+  }
+
+  /* Tabs */
+  .tabs-nav{ display:flex; gap:6px; margin-bottom:20px; border-bottom:1px solid var(--line); }
+  .tab-btn{
+    background:transparent; border:none; border-bottom:2px solid transparent; border-radius:0;
+    padding:10px 4px; margin-right:22px; font-size:15px; font-weight:600; color:var(--muted);
+    cursor:pointer;
+  }
+  .tab-btn:hover{ color:var(--text); border-color:var(--line); background:transparent; }
+  .tab-btn.active{ color:var(--gold); border-bottom-color:var(--gold); }
+  .tab-pane[hidden]{ display:none; }
+
+  /* Growth model tab */
+  .gm-kpi-grid{ display:grid; grid-template-columns:repeat(5,1fr); gap:12px; margin:0 0 16px; }
+  @media (max-width:980px){ .gm-kpi-grid{ grid-template-columns:repeat(2,1fr); } }
+  .gm-kpi-grid .kpi .value{ font-size:17px; line-height:1.3; word-break:break-word; }
+  .gm-kpi-grid .kpi{ padding:22px 14px; min-height:96px; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; }
+  .status-pill{
+    font-family:var(--mono); font-size:11.5px; font-weight:700; text-transform:uppercase;
+    letter-spacing:.04em; padding:3px 9px; border-radius:20px; display:inline-block;
+  }
+  .status-pill.hit{ background:rgba(38,166,154,0.14); color:var(--up); }
+  .status-pill.nothit{ background:rgba(239,83,80,0.14); color:var(--down); }
+  #gmMonthTable thead th, #gmMonthTable tbody td{ text-align:center !important; }
+  #gmMonthTable tbody tr{ cursor:pointer; }
+  #gmMonthTable tbody tr:hover{ background:var(--panel-2); }
+  #gmMonthTable tbody tr.sel{ background:rgba(212,175,55,0.09); }
+  .gm-year-sep td{
+    background:var(--panel-2); font-family:var(--mono); font-size:12px; text-transform:uppercase;
+    letter-spacing:.08em; color:var(--gold); padding:6px 8px;
+  }
+  #gmMonthTable tbody tr.gm-year-sep td{ text-align:left !important; }
+  .gm-daytable-wrap{ overflow-x:auto; }
+  #gmDayBody td.pnl-plan{ color:var(--muted); }
+
+  .gm-currency-bar{
+    display:flex; align-items:center; gap:16px; flex-wrap:wrap; margin-bottom:16px;
+  }
+  .gm-fx-label{
+    display:flex; align-items:center; gap:8px; font-size:13.5px; color:var(--muted); font-family:var(--mono);
+  }
+  .gm-fx-input{
+    width:110px; text-align:right; font-family:var(--mono); font-size:13.5px;
+    background:var(--panel-2); color:var(--text); border:1px solid var(--line); border-radius:7px; padding:7px 9px;
+  }
+  .gm-fx-input:focus-visible{ outline:2px solid var(--gold); outline-offset:1px; }
+  .src-pill{
+    font-family:var(--mono); font-size:11px; font-weight:600; text-transform:uppercase;
+    letter-spacing:.03em; padding:2px 7px; border-radius:5px; display:inline-block;
+  }
+  .src-pill.actual{ background:rgba(38,166,154,0.14); color:var(--up); }
+  .src-pill.plan{ background:var(--panel-2); color:var(--muted); }
+</style>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="top">
+    <div>
+      <p class="brand-eyebrow">MT5 · Nhật ký giao dịch</p>
+      <h1 class="brand-title">Thống kê lịch sử giao dịch</h1>
+      <p class="brand-sub" id="accountLine">Chưa có dữ liệu — hãy import báo cáo ReportHistory từ MT5</p>
+    </div>
+    <div class="top-actions">
+      <input type="file" id="fileInput" class="file-input-hidden" accept=".htm,.html" multiple>
+      <button class="primary" id="btnImport">+ Import</button>
+      <button class="ghost" id="btnTheme">Chế độ sáng</button>
+      <button class="ghost danger" id="btnClear">Xóa dữ liệu</button>
+    </div>
+  </header>
+
+  <!-- Supabase Sync Panel -->
+  <div class="panel" id="supabaseSyncPanel" style="margin-bottom: 20px;">
+    <div class="panel-head" style="margin-bottom: 10px;">
+      <h3>Đồng bộ đám mây (Supabase)</h3>
+      <span class="meta" id="syncStatusText">Chưa đăng nhập (Lưu trữ cục bộ)</span>
+    </div>
+    
+    <!-- If not logged in -->
+    <div id="syncLoggedOutForm" style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+      <input type="email" id="syncEmail" placeholder="Email" style="width: 220px; font-family: var(--sans);">
+      <input type="password" id="syncPassword" placeholder="Mật khẩu" style="width: 180px; font-family: var(--sans);">
+      <button class="primary small" id="btnSyncLogin">Đăng nhập</button>
+      <button class="ghost small" id="btnSyncRegister">Đăng ký tài khoản</button>
+      <span class="meta" style="font-size: 12px; color: var(--muted-2);">* Vui lòng kiểm tra hộp thư kích hoạt sau khi đăng ký (nếu Supabase yêu cầu).</span>
+    </div>
+    
+    <!-- If logged in -->
+    <div id="syncLoggedInForm" style="display: none; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px;">
+      <div style="display: flex; align-items: center; gap: 12px;">
+        <span id="syncUserEmail" style="font-weight: 600; font-size: 14px; font-family: var(--mono);"></span>
+        <span class="status-pill hit" id="syncStatusPill" style="font-size: 11px;">Đã đồng bộ</span>
+      </div>
+      <div style="display: flex; gap: 8px;">
+        <button class="small" id="btnSyncNow">Đồng bộ ngay</button>
+        <button class="small ghost danger" id="btnSyncLogout">Đăng xuất</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="tabs-nav">
+    <button class="tab-btn active" id="tabBtnJournal" data-tab="tabJournal">Nhật ký giao dịch</button>
+    <button class="tab-btn" id="tabBtnGrowth" data-tab="tabGrowth">Mô hình 1%</button>
+  </div>
+
+  <div class="gm-currency-bar" style="margin-bottom: 20px;">
+    <div class="seg-row" style="margin-bottom:0;">
+      <button class="seg active" id="gmCcyVnd" data-ccy="VND">VND</button>
+      <button class="seg" id="gmCcyUsd" data-ccy="USD">USD</button>
+    </div>
+    <label class="gm-fx-label">Tỷ giá quy đổi
+      <input type="text" inputmode="decimal" id="gmFxRate" class="gm-fx-input">
+    </label>
+  </div>
+
+  <div id="tabJournal" class="tab-pane">
+
+  <div id="dropzone">
+    <h2>Chưa có dữ liệu giao dịch</h2>
+    <p>Trong MT5: chuột phải vào bảng Lịch sử → Báo cáo → Save as Report (HTML).<br>
+       Kéo thả file .html vào đây, hoặc bấm "Import báo cáo" ở trên.<br>
+       Mỗi tuần / mỗi tháng chỉ cần import báo cáo mới nhất — hệ thống tự cộng dồn và loại bỏ lệnh trùng lặp theo mã lệnh.</p>
+    <button class="primary" id="btnImport2">Chọn file báo cáo</button>
+    <div class="hint">Dữ liệu chỉ lưu trên trình duyệt này (localStorage). Nên bấm "Xuất backup" định kỳ để không mất dữ liệu.</div>
+  </div>
+
+  <div id="dashboard" hidden>
+
+    <div class="kpi-grid" id="kpiGrid"></div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h3>Đường cong vốn (Equity Curve) — chỉ tính kết quả giao dịch</h3>
+        <div class="head-actions">
+          <span class="meta" id="equityMeta"></span>
+          <button class="small ghost" id="btnResetZoom">Xem toàn bộ</button>
+        </div>
+      </div>
+      <div class="chart-container" id="equityChart"></div>
+      <div class="zoom-hint">Cuộn chuột để zoom · Kéo để xem lại quá khứ · Rê chuột để xem giá trị</div>
+    </div>
+
+    <div class="grid-2">
+      <div class="panel">
+        <div class="panel-head">
+          <h3>Hiệu quả giao dịch</h3>
+          <span class="meta" id="monthlyMeta"></span>
+        </div>
+        <div class="seg-row">
+          <button class="seg " id="btnPeriodMonth" data-mode="month">Theo tháng</button>
+          <button class="seg" id="btnPeriodWeek" data-mode="week">Theo tuần</button>
+          <button class="seg active" id="btnPeriodWeekday" data-mode="weekday">Theo ngày</button>
+        </div>
+        <div class="seg-row" id="periodNav" style="display:none; align-items:center; justify-content:space-between;">
+          <button class="small ghost" id="btnPeriodPrev">◀ Trước</button>
+          <span class="meta" id="periodNavLabel"></span>
+          <button class="small ghost" id="btnPeriodNext">Sau ▶</button>
+        </div>
+        <div class="chart-container" id="monthlyChart"></div>
+      </div>
+      <div class="panel">
+        <div class="panel-head">
+          <h3>Theo sản phẩm</h3>
+          <span class="meta" id="symbolMeta"></span>
+        </div>
+        <div id="symbolBreakdown"></div>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h3>Nhận xét &amp; đề xuất cải thiện</h3>
+        <span class="meta">Tự động sinh từ dữ liệu hiện có</span>
+      </div>
+      <div id="insights"></div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h3>Nhật ký lệnh đóng</h3>
+        <span class="meta" id="tradeCountMeta"></span>
+      </div>
+      <div class="table-controls">
+        <select id="filterSymbol"><option value="">Tất cả sản phẩm</option></select>
+        <select id="filterResult">
+          <option value="">Tất cả kết quả</option>
+          <option value="win">Chỉ lệnh thắng</option>
+          <option value="loss">Chỉ lệnh thua</option>
+        </select>
+        <select id="sortBy">
+          <option value="time_desc">Mới nhất trước</option>
+          <option value="time_asc">Cũ nhất trước</option>
+          <option value="pnl_desc">Lợi nhuận cao nhất</option>
+          <option value="pnl_asc">Lỗ nhiều nhất</option>
+        </select>
+      </div>
+      <div class="table-scroll">
+        <table>
+          <thead>
+            <tr>
+              <th>Thời gian</th><th>Symbol</th><th>Loại</th><th>KL</th><th>Giá vào/ra</th>
+              <th>Thời gian giữ</th><th>Lợi nhuận</th><th>% Vốn</th><th>Swap</th><th>Phí</th>
+            </tr>
+          </thead>
+          <tbody id="tradeBody"></tbody>
+        </table>
+      </div>
+      <button class="load-more" id="btnLoadMore">Xem thêm 100 dòng</button>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head"><h3>Lịch sử import</h3></div>
+      <div class="import-log" id="importLog"></div>
+    </div>
+
+  </div>
+
+  </div><!-- /#tabJournal -->
+
+  <div id="tabGrowth" class="tab-pane" hidden>
+
+    <div class="gm-kpi-grid" id="gmKpiGrid"></div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h3>Chi tiết theo ngày — <span id="gmDetailMonthLabel"></span></h3>
+        <div class="head-actions">
+          <button class="small ghost" id="gmPrevMonth">◀ Tháng trước</button>
+          <button class="small ghost" id="gmNextMonth">Tháng sau ▶</button>
+        </div>
+      </div>
+      <div class="gm-daytable-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th style="text-align:left">Ngày GD</th>
+              <th>Profit %/ngày</th>
+              <th>Lợi nhuận</th>
+              <th>Tài sản</th>
+              <th style="text-align:center">Lãi kép % (trong tháng)</th>
+              <th style="text-align:center">Nguồn</th>
+            </tr>
+          </thead>
+          <tbody id="gmDayBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+    <div class="panel">
+      <div class="panel-head">
+        <h3>Bảng mục tiêu theo tháng</h3>
+        <span class="meta" id="gmMonthMeta"></span>
+      </div>
+      <div class="table-scroll">
+        <table id="gmMonthTable">
+          <thead>
+            <tr>
+              <th>Tháng</th>
+              <th>Vốn đầu tháng</th>
+              <th>Mục tiêu cuối tháng</th>
+              <th>Vốn thực tế cuối tháng</th>
+              <th>Tăng trưởng lũy kế</th>
+              <th>Trạng thái</th>
+              <th>Lợi nhuận</th>
+            </tr>
+          </thead>
+          <tbody id="gmMonthBody"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div><!-- /#tabGrowth -->
+
+  <footer class="foot">Chạy hoàn toàn trên trình duyệt — không gửi dữ liệu ra ngoài.</footer>
+</div>
+
+<div id="toast"></div>
+
+<script>
+(function(){
+  "use strict";
+
+  var STORAGE_KEY = "mt5_journal_deals_v1";
+  var LOG_KEY = "mt5_journal_import_log_v1";
+  var EQUITY_KEY = "mt5_journal_equity_v1";
+  var THEME_KEY = "mt5_journal_theme_v1";
+  var state = { deals: [], importLog: [], equitySnapshots: [] };
+
+  var tablePageSize = 100;
+  var tableShown = 100;
+  var currentStats = null;
+  var periodMode = "weekday";
+
+  // ---------- Theme ----------
+  function applyTheme(t){
+    document.documentElement.setAttribute("data-theme", t);
+    var btn = document.getElementById("btnTheme");
+    btn.textContent = t === "dark" ? "Chế độ sáng" : "Chế độ tối";
+    try{ localStorage.setItem(THEME_KEY, t); }catch(e){}
+  }
+  function initTheme(){
+    var saved = "dark";
+    try{ saved = localStorage.getItem(THEME_KEY) || "dark"; }catch(e){}
+    applyTheme(saved);
+  }
+  function toggleTheme(){
+    var cur = document.documentElement.getAttribute("data-theme");
+    applyTheme(cur === "dark" ? "light" : "dark");
+    // ve lai bieu do de doi mau grid/duong ke theo theme moi
+    if(currentStats){
+      renderEquityChart(currentStats);
+      renderPeriodChart(currentStats);
+      renderSymbolBreakdown(currentStats);
+    }
+  }
+
+  // ---------- Persistence ----------
+  function loadState(){
+    try{
+      var raw = localStorage.getItem(STORAGE_KEY);
+      state.deals = raw ? JSON.parse(raw) : [];
+    }catch(e){ state.deals = []; }
+    try{
+      var rawLog = localStorage.getItem(LOG_KEY);
+      state.importLog = rawLog ? JSON.parse(rawLog) : [];
+    }catch(e){ state.importLog = []; }
+    try{
+      var rawEq = localStorage.getItem(EQUITY_KEY);
+      state.equitySnapshots = rawEq ? JSON.parse(rawEq) : [];
+    }catch(e){ state.equitySnapshots = []; }
+  }
+  function saveState(){
+    try{
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state.deals));
+      localStorage.setItem(LOG_KEY, JSON.stringify(state.importLog));
+      localStorage.setItem(EQUITY_KEY, JSON.stringify(state.equitySnapshots));
+      
+      if (supabase && syncState.user) {
+        syncData();
+      }
+    }catch(e){
+      showToast("Không thể lưu vào localStorage (có thể đầy dung lượng) — hãy xuất backup JSON.");
+    }
+  }
+
+
+
+
+
+
+
+  // ---------- File decoding ----------
+  function decodeArrayBuffer(buf){
+    var bytes = new Uint8Array(buf);
+    if(bytes[0]===0xFF && bytes[1]===0xFE){
+      return new TextDecoder("utf-16le").decode(buf);
+    } else if(bytes[0]===0xFE && bytes[1]===0xFF){
+      return new TextDecoder("utf-16be").decode(buf);
+    }
+    return new TextDecoder("utf-8").decode(buf);
+  }
+
+  // ---------- Parsing ----------
+  var DATE_RE = /^\d{4}\.\d{2}\.\d{2} \d{2}:\d{2}:\d{2}$/;
+
+  // MT5 chen dau cach (space / non-breaking space) lam phan cach hang nghin
+  // cho cac cot so (vd Loi nhuan/Can bang) khi gia tri >= 1000, vi du "7 175.84".
+  // Phai loai bo khoang trang truoc khi parseFloat, neu khong so se bi cat cut.
+  function parseNum(text){
+    var cleaned = String(text).replace(/[\s\u00A0]/g, "");
+    var v = parseFloat(cleaned);
+    return isNaN(v) ? 0 : v;
+  }
+
+  function parseDealsFromHtml(html){
+    var doc = new DOMParser().parseFromString(html, "text/html");
+    var rows = doc.querySelectorAll("tr");
+    var inDeals = false;
+    var out = [];
+    for(var i=0;i<rows.length;i++){
+      var tr = rows[i];
+      var th = tr.querySelector("th");
+      if(th && /deals/i.test(th.textContent)){ inDeals = true; continue; }
+      if(!inDeals) continue;
+      var tds = tr.querySelectorAll("td");
+      if(tds.length < 14) continue;
+      var time = tds[0].textContent.trim();
+      if(!DATE_RE.test(time)) continue;
+      out.push({
+        time: time,
+        ts: parseMt5Time(time),
+        id: tds[1].textContent.trim(),
+        symbol: tds[2].textContent.trim(),
+        type: tds[3].textContent.trim().toLowerCase(),
+        direction: tds[4].textContent.trim().toLowerCase(),
+        volume: parseNum(tds[5].textContent),
+        price: parseNum(tds[6].textContent),
+        order: tds[7].textContent.trim(),
+        positionId: tds[8] ? tds[8].textContent.trim() : "",
+        commission: parseNum(tds[9].textContent),
+        fee: parseNum(tds[10].textContent),
+        swap: parseNum(tds[11].textContent),
+        profit: parseNum(tds[12].textContent),
+        balance: parseNum(tds[13].textContent),
+        comment: tds[14] ? tds[14].textContent.trim() : ""
+      });
+    }
+    return out;
+  }
+
+  function parseMt5Time(s){
+    var m = s.match(/^(\d{4})\.(\d{2})\.(\d{2}) (\d{2}):(\d{2}):(\d{2})$/);
+    if(!m) return 0;
+    return new Date(+m[1], +m[2]-1, +m[3], +m[4], +m[5], +m[6]).getTime();
+  }
+
+  // Doc block "Balance / Credit Facility / Floating P/L / Equity" o cuoi bao cao MT5
+  // (chiu duoc nhieu bien the: co/khong dau ":", nhan va gia tri cach nhau vai o trong)
+  function parseAccountSummaryFromHtml(html){
+    var doc = new DOMParser().parseFromString(html, "text/html");
+    var cells = doc.querySelectorAll("td, th");
+    var summary = {};
+    for(var i=0;i<cells.length;i++){
+      var raw = cells[i].textContent.replace(/\u00A0/g," ").trim();
+      var label = raw.replace(/:\s*$/,"").trim();
+      if(/^(Balance|Credit Facility|Floating P\/L|Equity)$/i.test(label)){
+        var key = label;
+        for(var j=i+1; j<Math.min(i+4, cells.length); j++){
+          var t = cells[j].textContent.replace(/\u00A0/g," ").trim();
+          if(t === "" || t === ":") continue;
+          var val = parseNum(t.replace(/^:/,""));
+          if(!isNaN(val)) summary[key] = val;
+          break;
+        }
+      }
+    }
+    return summary;
+  }
+
+  function dealKey(d){ return d.id; }
+
+  function mergeDeals(newDeals, sourceName){
+    var existingIds = {};
+    for(var i=0;i<state.deals.length;i++) existingIds[dealKey(state.deals[i])] = true;
+    var added = 0, skippedDup = 0;
+    for(var j=0;j<newDeals.length;j++){
+      var key = dealKey(newDeals[j]);
+      if(!existingIds[key]){
+        state.deals.push(newDeals[j]);
+        existingIds[key] = true;
+        added++;
+      } else {
+        skippedDup++;
+      }
+    }
+    state.deals.sort(function(a,b){ return a.ts - b.ts; });
+    state.importLog.unshift({
+      file: sourceName,
+      when: new Date().toISOString(),
+      totalInFile: newDeals.length,
+      added: added,
+      skippedDup: skippedDup
+    });
+    return added;
+  }
+
+  // ---------- Stats ----------
+  var WD_NAMES = ["Thứ 2","Thứ 3","Thứ 4","Thứ 5","Thứ 6","Thứ 7","Chủ nhật"];
+  var WD_SHORT = ["T2","T3","T4","T5","T6","T7","CN"];
+
+  function computeStats(deals){
+    var positionInDeals = {};
+    deals.forEach(function(d) {
+      if ((d.type === "buy" || d.type === "sell") && /in/.test(d.direction)) {
+        if (!positionInDeals[d.positionId]) {
+          positionInDeals[d.positionId] = d;
+        }
+      }
+    });
+
+    var closed = deals.filter(function(d){
+      return (d.type==="buy" || d.type==="sell") && /out/.test(d.direction);
+    });
+
+    closed.forEach(function(d) {
+      var entryDeal = null;
+      if (d.positionId && positionInDeals[d.positionId]) {
+        entryDeal = positionInDeals[d.positionId];
+      } else {
+        for (var j = deals.indexOf(d) - 1; j >= 0; j--) {
+          if (deals[j].symbol === d.symbol && /in/.test(deals[j].direction)) {
+            entryDeal = deals[j];
+            break;
+          }
+        }
+      }
+      if (entryDeal) {
+        d.entryTime = entryDeal.time;
+        d.entryTs = entryDeal.ts;
+        d.holdTime = d.ts - entryDeal.ts;
+      } else {
+        d.entryTime = "";
+        d.entryTs = 0;
+        d.holdTime = null;
+      }
+    });
+
+    var wins = closed.filter(function(d){ return d.profit > 0; });
+    var losses = closed.filter(function(d){ return d.profit < 0; });
+    var breakeven = closed.filter(function(d){ return d.profit === 0; });
+
+    var totalHoldTime = 0, holdCount = 0;
+    var winHoldTime = 0, winHoldCount = 0;
+    var lossHoldTime = 0, lossHoldCount = 0;
+
+    closed.forEach(function(d) {
+      if (d.holdTime !== null && d.holdTime !== undefined && !isNaN(d.holdTime)) {
+        totalHoldTime += d.holdTime;
+        holdCount++;
+        if (d.profit > 0) {
+          winHoldTime += d.holdTime;
+          winHoldCount++;
+        } else if (d.profit < 0) {
+          lossHoldTime += d.holdTime;
+          lossHoldCount++;
+        }
+      }
+    });
+
+    var avgHoldTime = holdCount ? totalHoldTime / holdCount : null;
+    var avgWinHoldTime = winHoldCount ? winHoldTime / winHoldCount : null;
+    var avgLossHoldTime = lossHoldCount ? lossHoldTime / lossHoldCount : null;
+
+    var grossProfit = wins.reduce(function(s,d){ return s+d.profit; }, 0);
+    var grossLoss = losses.reduce(function(s,d){ return s+d.profit; }, 0);
+    var netTradingPL = closed.reduce(function(s,d){ return s+d.profit; }, 0);
+    var totalCommission = deals.reduce(function(s,d){ return s+d.commission; }, 0);
+    var totalFee = deals.reduce(function(s,d){ return s+d.fee; }, 0);
+    var totalSwap = deals.reduce(function(s,d){ return s+d.swap; }, 0);
+
+    var winRate = closed.length ? (wins.length/closed.length*100) : 0;
+    var profitFactor = grossLoss !== 0 ? (grossProfit/Math.abs(grossLoss)) : (grossProfit>0 ? Infinity : 0);
+    var avgWin = wins.length ? grossProfit/wins.length : 0;
+    var avgLoss = losses.length ? Math.abs(grossLoss)/losses.length : 0;
+    var rr = avgLoss ? (avgWin/avgLoss) : 0;
+    var expectancy = (winRate/100*avgWin) - ((1-winRate/100)*avgLoss);
+
+    // Type = balance -> nop tien (profit > 0) hoac rut tien (profit < 0).
+    // Von thuc nop vao tai khoan = tong tat ca cac lan nop tru di cac lan rut,
+    // dung lam mau so tinh % Tong loi nhuan thay vi chi lay so du dau tien.
+    var balanceOps = deals.filter(function(d){ return d.type === "balance"; });
+    var totalDeposits = balanceOps.filter(function(d){ return d.profit > 0; }).reduce(function(s,d){ return s+d.profit; }, 0);
+    var totalWithdrawals = balanceOps.filter(function(d){ return d.profit < 0; }).reduce(function(s,d){ return s+d.profit; }, 0); // am
+    var netDeposited = totalDeposits + totalWithdrawals;
+
+    // ---- Duong cong equity: chi phan anh KET QUA GIAO DICH, KHONG tinh cac lan nap/rut ----
+    // So du tho (d.balance) nhay vot moi khi nap tien -> lam duong equity va drawdown hieu nham
+    // khoan nap la loi nhuan. Vi vay:
+    //   - Von goc = so du NGAY TRUOC lenh giao dich dau tien (gom tat ca cac lan nap truoc khi trade).
+    //   - Cac lan nap/rut SAU khi da trade = dong tien giua chung, cong/tru vao "duong von" (baseline)
+    //     chu khong tinh la loi nhuan, va khong tao buoc nhay tren duong equity giao dich.
+    //   - equity.balance (duong ve) = von goc + PL giao dich cong don => muot, khong nhay khi nap.
+    //   - capitalBase (de tinh drawdown %) = von goc + net flow sau trade => phan anh dung quy mo von.
+
+    // Moc lenh giao dich dau tien
+    var firstTradeIdx = -1;
+    for(var fi=0; fi<deals.length; fi++){
+      if(deals[fi].type === "buy" || deals[fi].type === "sell"){ firstTradeIdx = fi; break; }
+    }
+    // Von goc = so du ngay truoc lenh dau (gom moi lan nap truoc do). Neu chua co lenh nao,
+    // lay tong net cac dong nap/rut, hoac so du dong dau tien.
+    var preTradeNet = 0;
+    for(var pi=0; pi<deals.length; pi++){
+      var dd0 = deals[pi];
+      if(firstTradeIdx >= 0 && pi >= firstTradeIdx) break;
+      if(dd0.type === "balance") preTradeNet += dd0.profit;
+    }
+    var initialCapital = preTradeNet;
+    if(initialCapital <= 0){
+      // du phong: neu khong doc duoc dong nap truoc trade, dung so du dong dau tien
+      initialCapital = deals.length ? deals[0].balance : 0;
+    }
+
+    var equity = [];
+    var cumNetAfter = 0; // net nap/rut sau khi da bat dau trade
+    var cumTradePL = 0;  // loi nhuan giao dich cong don (khong gom nap/rut)
+    for(var ei=0; ei<deals.length; ei++){
+      var d = deals[ei];
+      var afterFirstTrade = (firstTradeIdx >= 0 && ei >= firstTradeIdx);
+      if(d.type === "balance"){
+        if(afterFirstTrade) cumNetAfter += d.profit; // nap/rut giua chung
+        // nap/rut truoc trade da nam trong initialCapital, bo qua
+      } else {
+        cumTradePL += (d.profit + d.commission + d.fee + d.swap);
+      }
+      var capitalBase = initialCapital + cumNetAfter; // von thuc te tai thoi diem nay
+      equity.push({
+        ts:d.ts, time:d.time,
+        balance: initialCapital + cumTradePL,   // duong ve: muot, khong nhay khi nap
+        tradePL: cumTradePL,
+        realBalance: capitalBase + cumTradePL,   // so du that (gom nap/rut) de doi chieu
+        capitalBase: capitalBase                 // quy mo von de tinh drawdown %
+      });
+    }
+    var startBalance = initialCapital;
+    var currentBalance = deals.length ? deals[deals.length-1].balance : 0;
+
+    // Drawdown: bien do sut giam cua PL giao dich cong don tinh tu dinh, do bang % tren QUY MO VON
+    // thuc te tai dinh (capitalBase), khong phai tren equity giao dich nho xiu ban dau -> % hop ly.
+    var peakPL = -Infinity, peakCapital = 0, maxDD = 0, maxDDPct = 0;
+    for(var i=0;i<equity.length;i++){
+      var pl = equity[i].tradePL;
+      if(pl > peakPL){ peakPL = pl; peakCapital = equity[i].capitalBase; }
+      var dd = peakPL - pl;              // so tien sut giam tu dinh PL
+      var basePeak = (peakCapital + peakPL) > 0 ? (peakCapital + peakPL) : peakCapital;
+      var ddPct = basePeak > 0 ? (dd/basePeak*100) : 0;
+      if(dd > maxDD) maxDD = dd;
+      if(ddPct > maxDDPct) maxDDPct = ddPct;
+    }
+
+    var curWinStreak=0, curLossStreak=0, maxWinStreak=0, maxLossStreak=0;
+    for(var k=0;k<closed.length;k++){
+      if(closed[k].profit > 0){ curWinStreak++; curLossStreak=0; }
+      else if(closed[k].profit < 0){ curLossStreak++; curWinStreak=0; }
+      if(curWinStreak>maxWinStreak) maxWinStreak=curWinStreak;
+      if(curLossStreak>maxLossStreak) maxLossStreak=curLossStreak;
+    }
+
+    var bySymbol = {};
+    closed.forEach(function(d){
+      if(!bySymbol[d.symbol]) bySymbol[d.symbol] = { symbol:d.symbol, count:0, pnl:0, wins:0 };
+      bySymbol[d.symbol].count++;
+      bySymbol[d.symbol].pnl += d.profit;
+      if(d.profit>0) bySymbol[d.symbol].wins++;
+    });
+    var symbolList = Object.keys(bySymbol).map(function(k){
+      var s = bySymbol[k];
+      s.winRate = s.count ? (s.wins/s.count*100) : 0;
+      return s;
+    }).sort(function(a,b){ return Math.abs(b.pnl) - Math.abs(a.pnl); });
+
+    var byMonth = {};
+    closed.forEach(function(d){
+      var dt = new Date(d.ts);
+      var key = dt.getFullYear() + "-" + String(dt.getMonth()+1).padStart(2,"0");
+      if(!byMonth[key]) byMonth[key] = { key:key, label:key.slice(2), full:key, pnl:0, count:0 };
+      byMonth[key].pnl += d.profit;
+      byMonth[key].count++;
+    });
+    var monthList = Object.keys(byMonth).sort().map(function(k){ return byMonth[k]; });
+
+    var byWeek = {};
+    closed.forEach(function(d){
+      var dt = new Date(d.ts);
+      var day = (dt.getDay()+6)%7;
+      var monday = new Date(dt.getFullYear(), dt.getMonth(), dt.getDate()-day);
+      var key = monday.getFullYear()+"-"+String(monday.getMonth()+1).padStart(2,"0")+"-"+String(monday.getDate()).padStart(2,"0");
+      if(!byWeek[key]){
+        byWeek[key] = {
+          key:key, sortTs: monday.getTime(),
+          label: String(monday.getDate()).padStart(2,"0")+"/"+String(monday.getMonth()+1).padStart(2,"0"),
+          full: "Tuần bắt đầu " + String(monday.getDate()).padStart(2,"0")+"/"+String(monday.getMonth()+1).padStart(2,"0")+"/"+monday.getFullYear(),
+          pnl:0, count:0
+        };
+      }
+      byWeek[key].pnl += d.profit;
+      byWeek[key].count++;
+    });
+    var weekList = Object.keys(byWeek).map(function(k){ return byWeek[k]; }).sort(function(a,b){ return a.sortTs-b.sortTs; });
+
+    var hedgeDeals = deals.filter(function(d){
+      return /out by/.test(d.direction) || /hedge/i.test(d.comment);
+    });
+
+    var dayKeys = {};
+    closed.forEach(function(d){
+      var dt = new Date(d.ts);
+      dayKeys[dt.getFullYear()+"-"+dt.getMonth()+"-"+dt.getDate()] = true;
+    });
+    var tradingDays = Object.keys(dayKeys).length;
+    var avgTradesPerDay = tradingDays ? (closed.length/tradingDays) : 0;
+
+    var avgBalance = equity.length ? (equity.reduce(function(s,p){ return s+p.balance; }, 0)/equity.length) : 0;
+
+    return {
+      closed: closed, wins: wins, losses: losses, breakeven: breakeven,
+      grossProfit: grossProfit, grossLoss: grossLoss, netTradingPL: netTradingPL,
+      totalCommission: totalCommission, totalFee: totalFee, totalSwap: totalSwap,
+      winRate: winRate, profitFactor: profitFactor, avgWin: avgWin, avgLoss: avgLoss,
+      rr: rr, expectancy: expectancy,
+      equity: equity, startBalance: startBalance, currentBalance: currentBalance, avgBalance: avgBalance,
+      totalDeposits: totalDeposits, totalWithdrawals: totalWithdrawals, netDeposited: netDeposited,
+      maxDD: maxDD, maxDDPct: maxDDPct,
+      maxWinStreak: maxWinStreak, maxLossStreak: maxLossStreak,
+      symbolList: symbolList, monthList: monthList, weekList: weekList,
+      hedgeCount: hedgeDeals.length, tradingDays: tradingDays, avgTradesPerDay: avgTradesPerDay,
+      avgHoldTime: avgHoldTime, avgWinHoldTime: avgWinHoldTime, avgLossHoldTime: avgLossHoldTime
+    };
+  }
+
+  // ---------- Dinh dang so ----------
+  window.mt5_getCcyMode = function() {
+    try {
+      return localStorage.getItem("mt5_growth_ccy_v1") || "VND";
+    } catch(e) {
+      return "VND";
+    }
+  };
+  window.mt5_getFxRate = function() {
+    try {
+      var savedFx = parseFloat(localStorage.getItem("mt5_growth_fx_v1"));
+      return (savedFx && savedFx > 0) ? savedFx : 26290;
+    } catch(e) {
+      return 26290;
+    }
+  };
+
+  function fmtCurrency(usdVal, forceSign, showUnit) {
+    var ccy = window.mt5_getCcyMode();
+    var rate = window.mt5_getFxRate();
+    var sign = "";
+    if (usdVal > 0 && forceSign) {
+      sign = "+";
+    } else if (usdVal < 0) {
+      sign = "-";
+    }
+    var absVal = Math.abs(usdVal);
+    if (ccy === "USD") {
+      var valStr = (Math.round(absVal * 10) / 10).toLocaleString("en-US", {minimumFractionDigits: 1, maximumFractionDigits: 1});
+      return sign + "$" + valStr;
+    } else {
+      var vndVal = absVal * rate;
+      var valStr = Math.round(vndVal).toLocaleString("en-US");
+      return sign + valStr + " đ";
+    }
+  }
+
+  function fmtChartValue(val) {
+    var ccy = window.mt5_getCcyMode();
+    var rate = window.mt5_getFxRate();
+    if (ccy === "USD") {
+      return "$" + Math.round(val).toLocaleString("en-US");
+    } else {
+      return Math.round(val * rate).toLocaleString("vi-VN");
+    }
+  }
+
+  function getPadL() {
+    return window.mt5_getCcyMode() === "VND" ? 75 : 55;
+  }
+
+  function fmt2(n){
+    var v = (Math.round(n*100)/100);
+    return v.toLocaleString("en-US", {minimumFractionDigits:2, maximumFractionDigits:2});
+  }
+  function fmtSigned(n){
+    return (n>=0?"+":"") + fmt2(n);
+  }
+  function fmtPct(n){
+    var s = (Math.round(n*100)/100).toFixed(2);
+    s = s.replace(/0+$/,"").replace(/\.$/,"");
+    return s + "%";
+  }
+
+  function fmtDuration(ms) {
+    if (ms === null || ms === undefined || isNaN(ms) || ms < 0) return "-";
+    var mins = ms / 60000;
+    return mins.toFixed(2) + " phút";
+  }
+
+  // ---------- KPI ----------
+  function renderKpi(stats){
+    var base = stats.avgBalance || stats.netDeposited || 1;
+    var totalRetPct = stats.netDeposited ? (stats.netTradingPL/stats.netDeposited*100) : 0;
+    var avgWinPct = base ? (stats.avgWin/base*100) : 0;
+    var avgLossPct = base ? (stats.avgLoss/base*100) : 0;
+    var expectancyPct = base ? (stats.expectancy/base*100) : 0;
+    var lossStreakShare = stats.closed.length ? (stats.maxLossStreak/stats.closed.length*100) : 0;
+    
+    var depositSub = "" + fmtCurrency(stats.totalDeposits, false) +
+      (stats.totalWithdrawals ? ", đã rút " + fmtCurrency(Math.abs(stats.totalWithdrawals), false) : "");
+
+    var cards = [
+      { label:"Tổng lợi nhuận", value: fmtSigned(totalRetPct)+"%", sub: fmtCurrency(stats.netTradingPL, true)+" ("+depositSub+")", cls: stats.netTradingPL>=0?"up":"down" },
+      { label:"Profit Factor", value: isFinite(stats.profitFactor) ? fmt2(stats.profitFactor) : (stats.profitFactor === Infinity ? "∞" : "0.00"), sub: "Tổng lãi / Tổng lỗ", cls: stats.profitFactor >= 1.6 ? "up" : (stats.profitFactor < 1 ? "down" : "") },
+      { label:"Drawdown", value: fmtPct(stats.maxDDPct), sub: "-"+fmtCurrency(stats.maxDD, false)+"", cls:"down" },
+      { label:"Tỷ lệ thắng", value: fmtPct(stats.winRate), sub: stats.wins.length+" Thắng / "+stats.losses.length+" Thua / "+stats.breakeven.length+" Hòa", cls:"" },
+      { label:"Lãi TB / lệnh", value: "+"+fmt2(avgWinPct)+"%", sub: "+"+fmtCurrency(stats.avgWin, false)+" ", cls:"up" },
+      { label:"Lỗ TB / lệnh", value: "-"+fmt2(avgLossPct)+"%", sub: "-"+fmtCurrency(stats.avgLoss, false)+" ", cls:"down" },
+      { label:"Expectancy", value: fmtSigned(expectancyPct)+"%", sub: fmtCurrency(stats.expectancy, true)+" ", cls: stats.expectancy>=0?"up":"down" },
+      { label:"R:R trung bình", value: "1 : "+fmt2(stats.rr), sub: fmt2(stats.rr)+ "R" },
+      { label:"Chuỗi thua", value: stats.maxLossStreak+" lệnh", sub: "= "+fmtPct(lossStreakShare)+" ", cls:"down" },
+      { label:"Giữ lệnh TB", value: fmtDuration(stats.avgHoldTime), sub: "", cls:"" },
+      { label:"Giữ lệnh lãi TB", value: fmtDuration(stats.avgWinHoldTime), sub: "", cls:"up" },
+      { label:"Giữ lệnh lỗ TB", value: fmtDuration(stats.avgLossHoldTime), sub: "", cls:"down" }
+    ];
+    var html = cards.map(function(c){
+      return '<div class="kpi"><div class="label">'+c.label+'</div>'+
+        '<div class="value '+c.cls+'">'+c.value+'</div>'+
+        (c.sub ? '<div class="sub">'+c.sub+'</div>' : '') + '</div>';
+    }).join("");
+    document.getElementById("kpiGrid").innerHTML = html;
+  }
+
+  // ---------- Equity chart: zoom / pan / hover ----------
+  var EQ_W = 1000, EQ_H = 260, EQ_PAD_L = 46, EQ_PAD_R = 10, EQ_PAD_T = 14, EQ_PAD_B = 26;
+  var equityView = null; // {minTs,maxTs} hoac null = xem toan bo
+  var isDraggingEq = false;
+  var dragStartXGlobal = 0;
+  var dragStartViewGlobal = null;
+
+  function getFullEquityRange(stats){
+    var eq = stats.equity;
+    return { minTs: eq[0].ts, maxTs: eq[eq.length-1].ts };
+  }
+
+  function renderEquityChart(stats){
+    var container = document.getElementById("equityChart");
+    var meta = document.getElementById("equityMeta");
+    var allPts = stats.equity;
+    if(allPts.length < 2){
+      container.innerHTML = '<p style="color:var(--muted);font-size:13px;">Chưa đủ dữ liệu để vẽ biểu đồ.</p>';
+      meta.textContent = "";
+      return;
+    }
+    var full = getFullEquityRange(stats);
+    var view = equityView ? { minTs: Math.max(equityView.minTs, full.minTs), maxTs: Math.min(equityView.maxTs, full.maxTs) } : { minTs: full.minTs, maxTs: full.maxTs };
+    if(view.maxTs <= view.minTs){ view = { minTs: full.minTs, maxTs: full.maxTs }; }
+
+    var visible = allPts.filter(function(p){ return p.ts >= view.minTs && p.ts <= view.maxTs; });
+    if(visible.length < 2) visible = allPts;
+
+    var maxPts = 600;
+    var sampled = visible;
+    if(visible.length > maxPts){
+      var step = Math.ceil(visible.length/maxPts);
+      sampled = visible.filter(function(_,i){ return i%step===0; });
+      if(sampled[sampled.length-1] !== visible[visible.length-1]) sampled.push(visible[visible.length-1]);
+    }
+
+    var W=EQ_W, H=EQ_H, padL=getPadL(), padR=EQ_PAD_R, padT=EQ_PAD_T, padB=EQ_PAD_B;
+    var minB = Math.min.apply(null, sampled.map(function(p){return p.balance;}));
+    var maxB = Math.max.apply(null, sampled.map(function(p){return p.balance;}));
+    if(minB === maxB){ minB -= 1; maxB += 1; }
+    var padBAmt = (maxB-minB)*0.06;
+    minB -= padBAmt; maxB += padBAmt;
+    var rangeB = maxB - minB;
+
+    function x(ts){ return padL + (ts-view.minTs)/(view.maxTs-view.minTs) * (W-padL-padR); }
+    function y(b){ return padT + (1 - (b-minB)/rangeB) * (H-padT-padB); }
+
+    var linePts = sampled.map(function(p){ return x(p.ts).toFixed(1)+","+y(p.balance).toFixed(1); }).join(" ");
+    var areaPts = linePts + " " + x(sampled[sampled.length-1].ts).toFixed(1)+","+(H-padB) + " " + x(sampled[0].ts).toFixed(1)+","+(H-padB);
+
+    var gridLines = "";
+    var steps = 4;
+    for(var i=0;i<=steps;i++){
+      var gy = padT + (H-padT-padB)*i/steps;
+      var val = maxB - (rangeB*i/steps);
+      gridLines += '<line x1="'+padL+'" y1="'+gy.toFixed(1)+'" x2="'+(W-padR)+'" y2="'+gy.toFixed(1)+'" style="stroke:var(--line);stroke-width:1"/>';
+      gridLines += '<text class="axis-label" x="4" y="'+(gy+3).toFixed(1)+'">'+fmtChartValue(val)+'</text>';
+    }
+    function dlabel(ts){ var d=new Date(ts); return String(d.getDate()).padStart(2,"0")+"/"+(d.getMonth()+1)+"/"+d.getFullYear(); }
+    var midTs = view.minTs + (view.maxTs-view.minTs)/2;
+    var xLabels = '<text class="axis-label" x="'+padL+'" y="'+(H-6)+'">'+dlabel(view.minTs)+'</text>'+
+      '<text class="axis-label" x="'+(x(midTs)-24).toFixed(1)+'" y="'+(H-6)+'">'+dlabel(midTs)+'</text>'+
+      '<text class="axis-label" x="'+(W-padR-58)+'" y="'+(H-6)+'">'+dlabel(view.maxTs)+'</text>';
+
+    var lineColor = sampled[sampled.length-1].balance >= sampled[0].balance ? "var(--up)" : "var(--down)";
+
+    var svg = '<svg class="equity-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+W+' '+H+'" style="cursor:grab;">'+
+      '<defs><linearGradient id="eqFill" x1="0" y1="0" x2="0" y2="1">'+
+      '<stop offset="0%" stop-color="'+lineColor+'" stop-opacity="0.30"/>'+
+      '<stop offset="100%" stop-color="'+lineColor+'" stop-opacity="0"/></linearGradient></defs>'+
+      gridLines +
+      '<polygon points="'+areaPts+'" fill="url(#eqFill)" stroke="none"/>'+
+      '<polyline points="'+linePts+'" fill="none" stroke="'+lineColor+'" stroke-width="1.75"/>'+
+      '<line class="eq-hover-line" x1="0" x2="0" y1="'+padT+'" y2="'+(H-padB)+'" style="stroke:var(--gold);stroke-width:1;stroke-dasharray:3,3;display:none;"/>'+
+      '<circle class="eq-hover-dot" r="3.2" fill="var(--gold)" style="display:none;"/>'+
+      xLabels +
+      '</svg><div class="eq-tooltip" style="display:none;"></div>';
+    container.innerHTML = svg;
+
+    meta.textContent = visible.length + " điểm \u00b7 " + dlabel(view.minTs) + " \u2192 " + dlabel(view.maxTs);
+
+    var svgEl = container.querySelector("svg");
+    var hoverLine = container.querySelector(".eq-hover-line");
+    var hoverDot = container.querySelector(".eq-hover-dot");
+    var tooltip = container.querySelector(".eq-tooltip");
+
+    function findNearest(ts){
+      var nearest = sampled[0], best = Math.abs(sampled[0].ts-ts);
+      for(var i=1;i<sampled.length;i++){
+        var d = Math.abs(sampled[i].ts-ts);
+        if(d < best){ best = d; nearest = sampled[i]; }
+      }
+      return nearest;
+    }
+
+    function hideHover(){
+      hoverLine.style.display = "none";
+      hoverDot.style.display = "none";
+      tooltip.style.display = "none";
+    }
+
+    svgEl.addEventListener("mousemove", function(e){
+      if(isDraggingEq) return;
+      var rect = svgEl.getBoundingClientRect();
+      var xViewBox = (e.clientX-rect.left)/rect.width*W;
+      var frac = (xViewBox-padL)/(W-padL-padR);
+      if(frac<0 || frac>1){ hideHover(); return; }
+      var ts = view.minTs + frac*(view.maxTs-view.minTs);
+      var pt = findNearest(ts);
+      var px = x(pt.ts), py = y(pt.balance);
+      hoverLine.setAttribute("x1", px.toFixed(1));
+      hoverLine.setAttribute("x2", px.toFixed(1));
+      hoverLine.style.display = "block";
+      hoverDot.setAttribute("cx", px.toFixed(1));
+      hoverDot.setAttribute("cy", py.toFixed(1));
+      hoverDot.style.display = "block";
+      var contRect = container.getBoundingClientRect();
+      var pxRatio = contRect.width/W;
+      tooltip.style.left = (px*pxRatio) + "px";
+      tooltip.style.top = (py*pxRatio) + "px";
+      var tipHtml = "<b>"+pt.time+"</b><br>Equity giao dịch: "+fmtCurrency(pt.balance, false);
+      if(pt.realBalance !== undefined && Math.abs(pt.realBalance - pt.balance) > 0.005){
+        tipHtml += "<br><span style='opacity:.75'>Số dư thực (gồm nạp/rút): "+fmtCurrency(pt.realBalance, false)+"</span>";
+      }
+      tooltip.innerHTML = tipHtml;
+      tooltip.style.display = "block";
+    });
+    svgEl.addEventListener("mouseleave", function(){ if(!isDraggingEq) hideHover(); });
+
+    svgEl.addEventListener("wheel", function(e){
+      e.preventDefault();
+      var rect = svgEl.getBoundingClientRect();
+      var xViewBox = (e.clientX-rect.left)/rect.width*W;
+      var frac = Math.min(1, Math.max(0, (xViewBox-padL)/(W-padL-padR)));
+      var ts = view.minTs + frac*(view.maxTs-view.minTs);
+      var span = view.maxTs - view.minTs;
+      var factor = e.deltaY < 0 ? 0.8 : 1.25;
+      var fullSpan = full.maxTs - full.minTs;
+      var minSpanLimit = 1000*60*60*3;
+      var newSpan = Math.min(fullSpan, Math.max(minSpanLimit, span*factor));
+      var newMin = ts - frac*newSpan;
+      var newMax = newMin + newSpan;
+      if(newMin < full.minTs){ newMin = full.minTs; newMax = newMin+newSpan; }
+      if(newMax > full.maxTs){ newMax = full.maxTs; newMin = newMax-newSpan; }
+      equityView = { minTs:newMin, maxTs:newMax };
+      renderEquityChart(currentStats);
+    }, {passive:false});
+
+    svgEl.addEventListener("mousedown", function(e){
+      isDraggingEq = true;
+      dragStartXGlobal = e.clientX;
+      dragStartViewGlobal = { minTs: view.minTs, maxTs: view.maxTs };
+      svgEl.style.cursor = "grabbing";
+      hideHover();
+      e.preventDefault();
+    });
+  }
+
+  // document-level drag handlers (dang ky 1 lan duy nhat)
+  document.addEventListener("mousemove", function(e){
+    if(!isDraggingEq || !currentStats || !dragStartViewGlobal) return;
+    var container = document.getElementById("equityChart");
+    var svgEl = container ? container.querySelector("svg") : null;
+    if(!svgEl) return;
+    var rect = svgEl.getBoundingClientRect();
+    var dxPix = e.clientX - dragStartXGlobal;
+    var dxViewBox = dxPix/rect.width*EQ_W;
+    var plotW = EQ_W - getPadL() - EQ_PAD_R;
+    var span = dragStartViewGlobal.maxTs - dragStartViewGlobal.minTs;
+    var dts = -(dxViewBox/plotW) * span;
+    var full = getFullEquityRange(currentStats);
+    var newMin = dragStartViewGlobal.minTs + dts;
+    var newMax = dragStartViewGlobal.maxTs + dts;
+    if(newMin < full.minTs){ newMin = full.minTs; newMax = newMin+span; }
+    if(newMax > full.maxTs){ newMax = full.maxTs; newMin = newMax-span; }
+    equityView = { minTs:newMin, maxTs:newMax };
+    renderEquityChart(currentStats);
+  });
+  document.addEventListener("mouseup", function(){
+    if(isDraggingEq){
+      isDraggingEq = false;
+      var svgEl = document.querySelector("#equityChart svg");
+      if(svgEl) svgEl.style.cursor = "grab";
+    }
+  });
+
+  // ---------- Bieu do thanh (thang / tuan / ngay trong tuan) voi hover ----------
+  function renderGenericBarChart(containerId, metaId, items, emptyMsg){
+    var container = document.getElementById(containerId);
+    var metaEl = metaId ? document.getElementById(metaId) : null;
+    if(!items.length){
+      container.innerHTML = '<p style="color:var(--muted);font-size:13px;">'+emptyMsg+'</p>';
+      if(metaEl) metaEl.textContent = "";
+      return;
+    }
+    var maxAbs = Math.max.apply(null, items.map(function(it){ return Math.abs(it.pnl); })) || 1;
+    var W=1000, H=200, padB=28, padT=10;
+    var slotW = (W-10)/items.length;
+    var barGap = 6;
+    var barW = slotW - barGap;
+    if(barW < 3) barW = 3;
+    var zeroY = padT + (H-padT-padB)/2;
+    var scale = (H-padT-padB)/2/maxAbs;
+
+    var bars = [];
+    var labels = "";
+    items.forEach(function(it, i){
+      var bx = 5 + i*slotW;
+      var bh = Math.abs(it.pnl)*scale;
+      var by = it.pnl >= 0 ? (zeroY-bh) : zeroY;
+      bars.push({ x:bx, y:by, w:barW, h:Math.max(bh,1), item:it, slotX:bx, slotW:slotW });
+      var showLabel = items.length <= 16 || i % Math.ceil(items.length/12) === 0;
+      if(showLabel){
+        labels += '<text class="axis-label" x="'+(bx+barW/2).toFixed(1)+'" y="'+(H-10)+'" text-anchor="middle">'+it.label+'</text>';
+      }
+    });
+    var barsHtml = bars.map(function(b){
+      var color = b.item.pnl >= 0 ? "var(--up)" : "var(--down)";
+      return '<rect x="'+b.x.toFixed(1)+'" y="'+b.y.toFixed(1)+'" width="'+b.w.toFixed(1)+'" height="'+b.h.toFixed(1)+'" fill="'+color+'" rx="1.5"/>';
+    }).join("");
+
+    var svg = '<svg class="equity-svg" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 '+W+' '+H+'">'+
+      '<line x1="0" y1="'+zeroY.toFixed(1)+'" x2="'+W+'" y2="'+zeroY.toFixed(1)+'" style="stroke:var(--line);stroke-width:1"/>'+
+      barsHtml + labels +
+      '<line class="bar-hover-line" x1="0" x2="0" y1="'+padT+'" y2="'+(H-padB)+'" style="stroke:var(--gold);stroke-width:1;stroke-dasharray:3,3;display:none;"/>'+
+      '</svg><div class="chart-tooltip" style="display:none;"></div>';
+    container.innerHTML = svg;
+
+    var svgEl = container.querySelector("svg");
+    var hoverLine = container.querySelector(".bar-hover-line");
+    var tooltip = container.querySelector(".chart-tooltip");
+
+    svgEl.addEventListener("mousemove", function(e){
+      var rect = svgEl.getBoundingClientRect();
+      var xViewBox = (e.clientX-rect.left)/rect.width*W;
+      var idx = Math.floor((xViewBox-5)/slotW);
+      if(idx < 0 || idx >= bars.length){
+        hoverLine.style.display = "none"; tooltip.style.display = "none"; return;
+      }
+      var b = bars[idx];
+      var midX = b.slotX + b.slotW/2;
+      hoverLine.setAttribute("x1", midX.toFixed(1));
+      hoverLine.setAttribute("x2", midX.toFixed(1));
+      hoverLine.style.display = "block";
+      var contRect = container.getBoundingClientRect();
+      var pxRatio = contRect.width/W;
+      tooltip.style.left = (midX*pxRatio) + "px";
+      tooltip.style.top = (b.y*pxRatio) + "px";
+      tooltip.innerHTML = "<b>"+b.item.full+"</b><br>Lãi/lỗ: "+fmtCurrency(b.item.pnl, true)+"<br>"+b.item.count+" lệnh";
+      tooltip.style.display = "block";
+    });
+    svgEl.addEventListener("mouseleave", function(){ hoverLine.style.display = "none"; tooltip.style.display = "none"; });
+
+    if(metaEl){
+      var profitable = items.filter(function(it){ return it.pnl>0; }).length;
+      metaEl.textContent = profitable + "/" + items.length + " kỳ có lãi";
+    }
+  }
+
+  var WEEK_WINDOW_SIZE = 12;
+  var weekWindowStartIdx = null; // vi tri bat dau cua so 12 tuan dang xem trong stats.weekList
+  var weekdayViewMondayTs = null; // thu Hai (00:00) cua tuan dang xem o che do "theo ngay trong tuan"
+  var DAY_MS = 24*60*60*1000;
+
+  function mondayOf(ts){
+    var d = new Date(ts);
+    d.setHours(0,0,0,0);
+    var day = (d.getDay()+6)%7;
+    d.setDate(d.getDate()-day);
+    return d.getTime();
+  }
+  function fmtDMY(ts){
+    var d = new Date(ts);
+    return String(d.getDate()).padStart(2,"0")+"/"+String(d.getMonth()+1).padStart(2,"0")+"/"+d.getFullYear();
+  }
+
+  // Tra ve 7 muc (Thu 2 -> Chu nhat) cho DUNG 1 tuan cu the (khong cong don nhieu tuan lai)
+  function computeWeekdayItemsForWeek(stats, mondayTs){
+    var items = [];
+    for(var i=0;i<7;i++){
+      var dayStart = mondayTs + i*DAY_MS;
+      var dayEnd = dayStart + DAY_MS;
+      var dayTrades = stats.closed.filter(function(d){ return d.ts>=dayStart && d.ts<dayEnd; });
+      var pnl = dayTrades.reduce(function(s,d){ return s+d.profit; }, 0);
+      items.push({
+        label: WD_SHORT[i],
+        full: WD_NAMES[i] + " (" + fmtDMY(dayStart) + ")",
+        pnl: pnl, count: dayTrades.length
+      });
+    }
+    return items;
+  }
+
+  function renderPeriodChart(stats){
+    var navEl = document.getElementById("periodNav");
+    var navLabel = document.getElementById("periodNavLabel");
+    var btnPrev = document.getElementById("btnPeriodPrev");
+    var btnNext = document.getElementById("btnPeriodNext");
+
+    if(periodMode === "month"){
+      navEl.style.display = "none";
+      renderGenericBarChart("monthlyChart", "monthlyMeta", stats.monthList, "Chưa có dữ liệu.");
+      return;
+    }
+
+    navEl.style.display = "flex";
+
+    if(periodMode === "week"){
+      var wl = stats.weekList;
+      if(weekWindowStartIdx === null) weekWindowStartIdx = Math.max(0, wl.length-WEEK_WINDOW_SIZE);
+      weekWindowStartIdx = Math.max(0, Math.min(weekWindowStartIdx, Math.max(0, wl.length-1)));
+      var endIdx = Math.min(wl.length, weekWindowStartIdx+WEEK_WINDOW_SIZE);
+      var items = wl.slice(weekWindowStartIdx, endIdx);
+      navLabel.textContent = items.length ? ("Tuần " + items[0].label + " \u2192 " + items[items.length-1].label) : "Chưa có dữ liệu";
+      btnPrev.disabled = weekWindowStartIdx <= 0;
+      btnNext.disabled = endIdx >= wl.length;
+      renderGenericBarChart("monthlyChart", "monthlyMeta", items, "Chưa có dữ liệu.");
+    } else if(periodMode === "weekday"){
+      var hasClosed = stats.closed.length > 0;
+      var minMonday = hasClosed ? mondayOf(stats.closed[0].ts) : mondayOf(Date.now());
+      var maxMonday = hasClosed ? mondayOf(stats.closed[stats.closed.length-1].ts) : mondayOf(Date.now());
+      if(weekdayViewMondayTs === null) weekdayViewMondayTs = maxMonday;
+      if(weekdayViewMondayTs < minMonday) weekdayViewMondayTs = minMonday;
+      if(weekdayViewMondayTs > maxMonday) weekdayViewMondayTs = maxMonday;
+      var wdItems = computeWeekdayItemsForWeek(stats, weekdayViewMondayTs);
+      navLabel.textContent = "Tuần " + fmtDMY(weekdayViewMondayTs) + " \u2192 " + fmtDMY(weekdayViewMondayTs+6*DAY_MS);
+      btnPrev.disabled = weekdayViewMondayTs <= minMonday;
+      btnNext.disabled = weekdayViewMondayTs >= maxMonday;
+      renderGenericBarChart("monthlyChart", "monthlyMeta", wdItems, "Chưa có dữ liệu.");
+    }
+  }
+
+  function periodNavPrev(){
+    if(periodMode === "week") weekWindowStartIdx = Math.max(0, (weekWindowStartIdx||0) - WEEK_WINDOW_SIZE);
+    else if(periodMode === "weekday") weekdayViewMondayTs = (weekdayViewMondayTs||mondayOf(Date.now())) - 7*DAY_MS;
+    if(currentStats) renderPeriodChart(currentStats);
+  }
+  function periodNavNext(){
+    if(periodMode === "week") weekWindowStartIdx = (weekWindowStartIdx||0) + WEEK_WINDOW_SIZE;
+    else if(periodMode === "weekday") weekdayViewMondayTs = (weekdayViewMondayTs||mondayOf(Date.now())) + 7*DAY_MS;
+    if(currentStats) renderPeriodChart(currentStats);
+  }
+
+  function setPeriodMode(mode){
+    periodMode = mode;
+    weekWindowStartIdx = null;
+    weekdayViewMondayTs = null;
+    ["btnPeriodMonth","btnPeriodWeek","btnPeriodWeekday"].forEach(function(id){
+      document.getElementById(id).classList.remove("active");
+    });
+    var map = { month:"btnPeriodMonth", week:"btnPeriodWeek", weekday:"btnPeriodWeekday" };
+    document.getElementById(map[mode]).classList.add("active");
+    if(currentStats) renderPeriodChart(currentStats);
+  }
+
+  // ---------- Theo san pham ----------
+  function renderSymbolBreakdown(stats){
+    var container = document.getElementById("symbolBreakdown");
+    var meta = document.getElementById("symbolMeta");
+    var list = stats.symbolList;
+    if(!list.length){ container.innerHTML = '<p style="color:var(--muted);font-size:13px;">Chưa có dữ liệu.</p>'; return; }
+    var html = list.map(function(s){
+      var pnlCls = s.pnl>=0 ? "pnl-pos" : "pnl-neg";
+      return '<div class="sym-row">'+
+        '<span class="sym-name">'+s.symbol+'</span>'+
+        '<span class="sym-pnl '+pnlCls+'">'+fmtCurrency(s.pnl, true)+'</span>'+
+        '<span class="sym-wr">'+fmtPct(s.winRate)+'</span>'+
+      '</div>';
+    }).join("");
+    container.innerHTML = html;
+    meta.textContent = list.length + " sản phẩm";
+  }
+
+  // ---------- Insights ----------
+  function renderInsights(stats){
+    var container = document.getElementById("insights");
+    var items = [];
+    function push(tag, text){ items.push({tag:tag, text:text}); }
+
+    if(stats.closed.length < 10){
+      push("note", "Chưa đủ dữ liệu để đánh giá sâu (chỉ " + stats.closed.length + " lệnh đóng). Import thêm lịch sử để nhận xét chính xác hơn.");
+    }
+    if(isFinite(stats.profitFactor) && stats.profitFactor < 1 && stats.closed.length>=10){
+      push("warn", "Profit Factor = " + fmt2(stats.profitFactor) + " (tỷ số Tổng lãi / Tổng lỗ) < 1: tổng thể đang lỗ tiền. Ưu tiên xem lại điều kiện vào lệnh và nguyên tắc cắt lỗ trước khi tăng khối lượng.");
+    } else if(stats.profitFactor >= 1.6 && stats.closed.length>=10){
+      push("good", "Profit Factor = " + fmt2(stats.profitFactor) + " (tỷ số Tổng lãi / Tổng lỗ) đang ở mức tốt. Duy trì kỷ luật hiện tại, tránh thay đổi hệ thống khi chưa có lý do rõ ràng.");
+    }
+    if(stats.winRate < 40 && stats.rr < 1.3 && stats.closed.length>=10){
+      push("warn", "Tỷ lệ thắng thấp (" + fmtPct(stats.winRate) + ") trong khi R:R chỉ " + fmt2(stats.rr) + " — hai yếu tố này cùng yếu sẽ khó có lãi bền vững. Cần cải thiện một trong hai: hoặc nâng R:R (đặt chốt lỗ/chốt lời rõ ràng hơn), hoặc nâng tỷ lệ thắng (lọc điểm vào lệnh chặt hơn).");
+    }
+    if(stats.maxDDPct > 30){
+      push("warn", "Drawdown tối đa " + fmtPct(stats.maxDDPct) + " từ đỉnh vốn (" + fmtCurrency(stats.maxDD, false) + "). Mức này khá cao, nên giảm khối lượng lệnh (lot size) hoặc giới hạn số lệnh mở đồng thời để bảo vệ vốn.");
+    } else if(stats.maxDDPct > 15){
+      push("note", "Drawdown tối đa " + fmtPct(stats.maxDDPct) + " — ở mức cần theo dõi, nên đặt giới hạn drawdown tối đa cho tài khoản (ví dụ 20%) và dừng lại khi chạm ngưỡng.");
+    }
+    if(stats.maxLossStreak >= 6){
+      push("warn", "Chuỗi thua liên tiếp dài nhất là " + stats.maxLossStreak + " lệnh. Cần bổ sung quy tắc dừng lệnh tạm thời sau X lệnh thua liên tiếp để tránh gồng lệnh trong tâm lý xấu.");
+    }
+    if(stats.symbolList.length){
+      var top = stats.symbolList[0];
+      var topShare = stats.closed.length ? (top.count/stats.closed.length*100) : 0;
+      if(topShare > 75 && stats.symbolList.length > 1){
+        push("note", "Giao dịch tập trung " + fmtPct(topShare) + " ở " + top.symbol + ". Nếu đây là chủ đích (chuyên môn hóa một sản phẩm) thì tốt, nhưng cần lưu ý rủi ro tương quan khi thị trường " + top.symbol + " biến động bất thường.");
+      }
+    }
+    if(stats.totalSwap < 0 && Math.abs(stats.totalSwap) > Math.abs(stats.netTradingPL)*0.15 && stats.netTradingPL !== 0){
+      push("note", "Chi phí swap âm (" + fmtCurrency(stats.totalSwap, false) + ") đang chiếm tỷ trọng đáng kể so với lợi nhuận giao dịch. Nếu hay giữ lệnh qua đêm, cần tính swap vào kỳ vọng lợi nhuận hoặc ưu tiên vào lệnh gần phiên đóng.");
+    }
+    if(stats.avgTradesPerDay > 15){
+      push("note", "Trung bình " + stats.avgTradesPerDay.toFixed(1) + " lệnh/ngày giao dịch — tần suất khá cao. Kiểm tra xem đây có phải overtrading (vào lệnh khi không có tín hiệu rõ ràng) hay là chiến lược scalping chủ đích.");
+    }
+    if(stats.expectancy < 0 && stats.closed.length>=10){
+      push("warn", "Kỳ vọng lợi nhuận trên mỗi lệnh đang âm (" + fmtCurrency(stats.expectancy, true) + "). Về dài hạn, hệ thống hiện tại sẽ ăn mòn vốn nếu không điều chỉnh.");
+    } else if(stats.expectancy > 0 && stats.closed.length>=10){
+      push("good", "Kỳ vọng lợi nhuận trên mỗi lệnh đang dương (" + fmtCurrency(stats.expectancy, true) + "). Có thể cân nhắc tăng dần khối lượng theo % vốn thay vì lot cố định để tối ưu tăng trưởng.");
+    }
+    if(!items.length){
+      push("note", "Chưa phát hiện điểm bất thường rõ rệt. Tiếp tục import dữ liệu định kỳ để theo dõi xu hướng.");
+    }
+
+    container.innerHTML = items.map(function(it){
+      var tagLabel = it.tag==="warn" ? "Cần lưu ý" : it.tag==="good" ? "Điểm mạnh" : "Ghi chú";
+      return '<div class="insight"><span class="tag '+it.tag+'">'+tagLabel+'</span><span>'+it.text+'</span></div>';
+    }).join("");
+  }
+
+  // ---------- Bang lenh ----------
+  function populateSymbolFilter(stats){
+    var sel = document.getElementById("filterSymbol");
+    var cur = sel.value;
+    var opts = ['<option value="">Tất cả sản phẩm</option>'].concat(
+      stats.symbolList.map(function(s){ return '<option value="'+s.symbol+'">'+s.symbol+'</option>'; })
+    );
+    sel.innerHTML = opts.join("");
+    sel.value = cur;
+  }
+
+  function pctOfCapital(d){
+    var balanceBefore = d.balance - d.profit - d.commission - d.fee - d.swap;
+    if(balanceBefore <= 0) return null;
+    return d.profit / balanceBefore * 100;
+  }
+
+  function renderTradeTable(reset){
+    if(reset) tableShown = tablePageSize;
+    var stats = currentStats;
+    var symF = document.getElementById("filterSymbol").value;
+    var resF = document.getElementById("filterResult").value;
+    var sortF = document.getElementById("sortBy").value;
+
+    var rows = stats.closed.slice();
+    if(symF) rows = rows.filter(function(d){ return d.symbol===symF; });
+    if(resF==="win") rows = rows.filter(function(d){ return d.profit>0; });
+    if(resF==="loss") rows = rows.filter(function(d){ return d.profit<0; });
+
+    if(sortF==="time_desc") rows.sort(function(a,b){ return b.ts-a.ts; });
+    else if(sortF==="time_asc") rows.sort(function(a,b){ return a.ts-b.ts; });
+    else if(sortF==="pnl_desc") rows.sort(function(a,b){ return b.profit-a.profit; });
+    else if(sortF==="pnl_asc") rows.sort(function(a,b){ return a.profit-b.profit; });
+
+    document.getElementById("tradeCountMeta").textContent = rows.length + " lệnh đóng (trên tổng " + stats.closed.length + ")";
+
+    var shown = rows.slice(0, tableShown);
+    var html = shown.map(function(d){
+      var pnlCls = d.profit>0 ? "pnl-pos" : d.profit<0 ? "pnl-neg" : "";
+      var dirCls = d.type==="buy" ? "dir-buy" : "dir-sell";
+      var pct = pctOfCapital(d);
+      var pctStr = pct===null ? "-" : (pct>=0?"+":"") + fmt2(pct) + "%";
+      var pctCls = pct===null ? "" : (pct>=0 ? "pnl-pos" : "pnl-neg");
+      return "<tr>"+
+        "<td>"+d.time+"</td>"+
+        "<td>"+d.symbol+"</td>"+
+        "<td class='"+dirCls+"'>"+d.type.toUpperCase()+"</td>"+
+        "<td>"+d.volume+"</td>"+
+        "<td>"+d.price+"</td>"+
+        "<td>"+fmtDuration(d.holdTime)+"</td>"+
+        "<td class='"+pnlCls+"'>"+fmtCurrency(d.profit, true, true)+"</td>"+
+        "<td class='"+pctCls+"'>"+pctStr+"</td>"+
+        "<td>"+fmtCurrency(d.swap, false, true)+"</td>"+
+        "<td>"+fmtCurrency(d.commission+d.fee, false, true)+"</td>"+
+      "</tr>";
+    }).join("");
+    document.getElementById("tradeBody").innerHTML = html || '<tr><td colspan="10" style="text-align:center;color:var(--muted);padding:20px;">Không có lệnh phù hợp bộ lọc</td></tr>';
+
+    var btn = document.getElementById("btnLoadMore");
+    btn.style.display = rows.length > tableShown ? "block" : "none";
+  }
+
+  // ---------- Lich su import ----------
+  function renderImportLog(){
+    var container = document.getElementById("importLog");
+    if(!state.importLog.length){
+      container.innerHTML = '<div style="color:var(--muted-2)">Chưa có lần import nào.</div>';
+      return;
+    }
+    container.innerHTML = state.importLog.map(function(l){
+      var d = new Date(l.when);
+      var dstr = d.toLocaleString("vi-VN");
+      var dupStr = l.skippedDup ? (", bỏ qua " + l.skippedDup + " lệnh trùng") : "";
+      return '<div>' + dstr + ' \u2014 ' + escapeHtml(l.file) + ' \u2014 ' + l.totalInFile + ' dòng đọc được, ' + l.added + ' lệnh mới' + dupStr + '</div>';
+    }).join("");
+  }
+
+  function escapeHtml(s){
+    var d = document.createElement("div");
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+
+  // ---------- Render tong ----------
+  function renderAll(){
+    if(!state.deals.length){
+      document.getElementById("dropzone").style.display = "block";
+      document.getElementById("dashboard").hidden = true;
+      document.getElementById("accountLine").textContent = "Chưa có dữ liệu — hãy import báo cáo ReportHistory từ MT5";
+      document.dispatchEvent(new CustomEvent("mt5:dataChanged"));
+      return;
+    }
+    document.getElementById("dropzone").style.display = "none";
+    document.getElementById("dashboard").hidden = false;
+
+    equityView = null;
+    weekWindowStartIdx = null;
+    weekdayViewMondayTs = null;
+    currentStats = computeStats(state.deals);
+    var first = state.deals[0], last = state.deals[state.deals.length-1];
+    document.getElementById("accountLine").textContent =
+      state.deals.length + " dòng giao dịch \u00b7 " + first.time.slice(0,10) + " \u2192 " + last.time.slice(0,10);
+
+    renderKpi(currentStats);
+    renderEquityChart(currentStats);
+    renderPeriodChart(currentStats);
+    renderSymbolBreakdown(currentStats);
+    renderInsights(currentStats);
+    populateSymbolFilter(currentStats);
+    renderTradeTable(true);
+    renderImportLog();
+    document.dispatchEvent(new CustomEvent("mt5:dataChanged"));
+  }
+
+  // Cho phep tab "Mo hinh 1%" doc du lieu lenh da import (khong sua state tu ben ngoai)
+  window.getJournalDeals = function(){ return state.deals; };
+  window.getLatestAccountEquity = function(){
+    if(!state.equitySnapshots || !state.equitySnapshots.length) return null;
+    var latest = state.equitySnapshots.reduce(function(a,b){ return (b.ts > a.ts) ? b : a; });
+    return latest.equity;
+  };
+  window.getLatestDealBalance = function(){
+    if(!state.deals || !state.deals.length) return null;
+    return state.deals[state.deals.length-1].balance;
+  };
+
+  // ---------- Toast ----------
+  var toastTimer = null;
+  function showToast(msg){
+    var t = document.getElementById("toast");
+    t.textContent = msg;
+    t.classList.add("show");
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function(){ t.classList.remove("show"); }, 3200);
+  }
+
+  // ---------- Xu ly file ----------
+  function handleFiles(fileList){
+    var files = Array.prototype.slice.call(fileList);
+    if(!files.length) return;
+    var remaining = files.length;
+    var totalAdded = 0, totalDup = 0;
+    files.forEach(function(file){
+      var reader = new FileReader();
+      reader.onload = function(e){
+        try{
+          var html = decodeArrayBuffer(e.target.result);
+          var deals = parseDealsFromHtml(html);
+          if(!deals.length){
+            showToast('Không tìm thấy dữ liệu "Deals" trong file: ' + file.name);
+          } else {
+            var added = mergeDeals(deals, file.name);
+            totalAdded += added;
+            totalDup += (deals.length - added);
+          }
+          var summary = parseAccountSummaryFromHtml(html);
+          if(summary.Equity !== undefined){
+            var lastTs = deals.length ? Math.max.apply(null, deals.map(function(d){return d.ts;})) : Date.now();
+            state.equitySnapshots.push({ equity: summary.Equity, balance: summary.Balance, ts: lastTs, file: file.name, importedAt: Date.now() });
+          }
+        }catch(err){
+          showToast("Lỗi đọc file " + file.name + ": " + err.message);
+        }
+        remaining--;
+        if(remaining===0){
+          saveState();
+          renderAll();
+          showToast("Đã import xong. Thêm " + totalAdded + " lệnh mới, bỏ qua " + totalDup + " lệnh trùng.");
+        }
+      };
+      reader.onerror = function(){
+        showToast("Không đọc được file: " + file.name);
+        remaining--;
+        if(remaining===0){ saveState(); renderAll(); }
+      };
+      reader.readAsArrayBuffer(file);
+    });
+  }
+
+  // ---------- Backup JSON ----------
+  function exportJson(){
+    var payload = { deals: state.deals, importLog: state.importLog, equitySnapshots: state.equitySnapshots, exportedAt: new Date().toISOString() };
+    var blob = new Blob([JSON.stringify(payload)], {type:"application/json"});
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement("a");
+    a.href = url;
+    a.download = "mt5-journal-backup-" + new Date().toISOString().slice(0,10) + ".json";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }
+
+  function importJson(file){
+    var reader = new FileReader();
+    reader.onload = function(e){
+      try{
+        var payload = JSON.parse(e.target.result);
+        if(!payload.deals || !Array.isArray(payload.deals)) throw new Error("File backup không đúng định dạng");
+        var existingIds = {};
+        state.deals.forEach(function(d){ existingIds[d.id]=true; });
+        var added = 0, dup = 0;
+        payload.deals.forEach(function(d){
+          if(!existingIds[d.id]){ state.deals.push(d); existingIds[d.id]=true; added++; }
+          else dup++;
+        });
+        state.deals.sort(function(a,b){ return a.ts-b.ts; });
+        if(payload.importLog) state.importLog = payload.importLog.concat(state.importLog);
+        if(payload.equitySnapshots && Array.isArray(payload.equitySnapshots)){
+          state.equitySnapshots = state.equitySnapshots.concat(payload.equitySnapshots);
+        }
+        saveState();
+        renderAll();
+        showToast("Đã nạp backup. Thêm " + added + " lệnh mới, bỏ qua " + dup + " lệnh trùng.");
+      }catch(err){
+        showToast("Lỗi nạp backup: " + err.message);
+      }
+    };
+    reader.readAsText(file, "utf-8");
+  }
+
+  // ---------- Su kien ----------
+  document.getElementById("btnImport").addEventListener("click", function(){ document.getElementById("fileInput").click(); });
+  document.getElementById("btnImport2").addEventListener("click", function(){ document.getElementById("fileInput").click(); });
+  document.getElementById("fileInput").addEventListener("change", function(e){ handleFiles(e.target.files); e.target.value=""; });
+
+  document.getElementById("btnTheme").addEventListener("click", toggleTheme);
+
+  document.getElementById("btnClear").addEventListener("click", function(){
+    if(confirm("Xóa toàn bộ dữ liệu đã import? Hành động này không thể hoàn tác (hãy xuất backup JSON trước nếu cần).")){
+      state.deals = [];
+      state.importLog = [];
+      state.equitySnapshots = [];
+      saveState();
+      renderAll();
+      showToast("Đã xóa toàn bộ dữ liệu cục bộ.");
+      
+      if (supabase && syncState.user) {
+        const userId = syncState.user.id;
+        setSyncStatus("syncing");
+        (async () => {
+          try {
+            await Promise.all([
+              supabase.from('deals').delete().eq('user_id', userId),
+              supabase.from('import_logs').delete().eq('user_id', userId),
+              supabase.from('equity_snapshots').delete().eq('user_id', userId)
+            ]);
+            setSyncStatus("success");
+            showToast("Đã xóa toàn bộ dữ liệu trên đám mây.");
+          } catch(e) {
+            setSyncStatus("error");
+            showToast("Lỗi khi xóa dữ liệu trên đám mây: " + e.message);
+          }
+        })();
+      }
+    }
+  });
+
+  ["filterSymbol","filterResult","sortBy"].forEach(function(id){
+    document.getElementById(id).addEventListener("change", function(){ renderTradeTable(true); });
+  });
+  document.getElementById("btnLoadMore").addEventListener("click", function(){
+    tableShown += tablePageSize;
+    renderTradeTable(false);
+  });
+
+  document.getElementById("btnResetZoom").addEventListener("click", function(){
+    equityView = null;
+    if(currentStats) renderEquityChart(currentStats);
+  });
+  document.getElementById("btnPeriodMonth").addEventListener("click", function(){ setPeriodMode("month"); });
+  document.getElementById("btnPeriodWeek").addEventListener("click", function(){ setPeriodMode("week"); });
+  document.getElementById("btnPeriodWeekday").addEventListener("click", function(){ setPeriodMode("weekday"); });
+  document.getElementById("btnPeriodPrev").addEventListener("click", periodNavPrev);
+  document.getElementById("btnPeriodNext").addEventListener("click", periodNavNext);
+
+  var dz = document.getElementById("dropzone");
+  ["dragenter","dragover"].forEach(function(evt){
+    dz.addEventListener(evt, function(e){ e.preventDefault(); dz.classList.add("drag"); });
+  });
+  ["dragleave","drop"].forEach(function(evt){
+    dz.addEventListener(evt, function(e){ e.preventDefault(); dz.classList.remove("drag"); });
+  });
+  dz.addEventListener("drop", function(e){
+    if(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length){
+      handleFiles(e.dataTransfer.files);
+    }
+  });
+  document.body.addEventListener("dragover", function(e){ e.preventDefault(); });
+  document.body.addEventListener("drop", function(e){
+    e.preventDefault();
+    if(e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length){
+      handleFiles(e.dataTransfer.files);
+    }
+  });
+
+  // ---------- Khoi tao ----------
+  initTheme();
+  loadState();
+  renderAll();
+
+  document.addEventListener("mt5:currencyChanged", function(){
+    renderAll();
+  });
+
+  // ---------- Supabase Sync Integration ----------
+  var SUPABASE_URL = "https://suwkxmoummgfqzhydbpg.supabase.co";
+  var SUPABASE_KEY = "sb_publishable_rlrNM1e6m6u9vfkY9IOcCQ_aPLrCDzp";
+  var supabase = null;
+  var syncState = { user: null, isSyncing: false };
+
+  try {
+    if (typeof window.supabase !== "undefined") {
+      supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    }
+  } catch(e) {
+    console.error("Supabase load error:", e);
+  }
+
+  function updateSyncUI() {
+    var loggedOutForm = document.getElementById("syncLoggedOutForm");
+    var loggedInForm = document.getElementById("syncLoggedInForm");
+    var userEmailSpan = document.getElementById("syncUserEmail");
+    var statusText = document.getElementById("syncStatusText");
+    var loginBtn = document.getElementById("btnSyncLogin");
+    var registerBtn = document.getElementById("btnSyncRegister");
+    var logoutBtn = document.getElementById("btnSyncLogout");
+    var syncNowBtn = document.getElementById("btnSyncNow");
+
+    if (syncState.user) {
+      if (loggedOutForm) loggedOutForm.style.display = "none";
+      if (loggedInForm) loggedInForm.style.display = "flex";
+      if (userEmailSpan) userEmailSpan.textContent = syncState.user.email;
+    } else {
+      if (loggedOutForm) loggedOutForm.style.display = "flex";
+      if (loggedInForm) loggedInForm.style.display = "none";
+      if (userEmailSpan) userEmailSpan.textContent = "";
+      if (statusText) statusText.textContent = "Chưa đăng nhập (Lưu trữ cục bộ)";
+    }
+
+    var isDisabled = syncState.isSyncing;
+    if (loginBtn) loginBtn.disabled = isDisabled;
+    if (registerBtn) registerBtn.disabled = isDisabled;
+    if (logoutBtn) logoutBtn.disabled = isDisabled;
+    if (syncNowBtn) syncNowBtn.disabled = isDisabled;
+  }
+
+  function setSyncStatus(status) {
+    var statusText = document.getElementById("syncStatusText");
+    var statusPill = document.getElementById("syncStatusPill");
+
+    if (!syncState.user) {
+      if (statusText) statusText.textContent = "Chưa đăng nhập (Lưu trữ cục bộ)";
+      return;
+    }
+
+    if (status === "syncing") {
+      if (statusText) statusText.textContent = "Đang đồng bộ...";
+      if (statusPill) {
+        statusPill.textContent = "Đang đồng bộ...";
+        statusPill.className = "status-pill nothit";
+        statusPill.style.background = "rgba(212,175,55,0.14)";
+        statusPill.style.color = "var(--gold)";
+      }
+    } else if (status === "success") {
+      if (statusText) statusText.textContent = "Đã đồng bộ hóa thành công với đám mây.";
+      if (statusPill) {
+        statusPill.textContent = "Đã đồng bộ";
+        statusPill.className = "status-pill hit";
+        statusPill.style.background = "rgba(38,166,154,0.14)";
+        statusPill.style.color = "var(--up)";
+      }
+    } else if (status === "error") {
+      if (statusText) statusText.textContent = "Đồng bộ thất bại. Kiểm tra kết nối.";
+      if (statusPill) {
+        statusPill.textContent = "Lỗi đồng bộ";
+        statusPill.className = "status-pill nothit";
+        statusPill.style.background = "rgba(239,83,80,0.14)";
+        statusPill.style.color = "var(--down)";
+      }
+    }
+  }
+
+  async function syncData() {
+    if (!supabase || !syncState.user) return;
+    if (syncState.isSyncing) return;
+    syncState.isSyncing = true;
+    updateSyncUI();
+    setSyncStatus("syncing");
+
+    try {
+      var userId = syncState.user.id;
+
+      // 1. Get remote data
+      var dealsRes = await supabase.from('deals').select('*').eq('user_id', userId);
+      var logsRes = await supabase.from('import_logs').select('*').eq('user_id', userId);
+      var eqRes = await supabase.from('equity_snapshots').select('*').eq('user_id', userId);
+      var settingsRes = await supabase.from('settings').select('*').eq('user_id', userId).maybeSingle();
+
+      if (dealsRes.error) throw dealsRes.error;
+      if (logsRes.error) throw logsRes.error;
+      if (eqRes.error) throw eqRes.error;
+
+      var remoteDeals = dealsRes.data || [];
+      var remoteLogs = logsRes.data || [];
+      var remoteEquity = eqRes.data || [];
+      var remoteSettings = settingsRes.data;
+
+      // 2. Merge deals
+      var mappedRemoteDeals = remoteDeals.map(function(d) {
+        return {
+          id: d.id,
+          time: d.time,
+          ts: parseInt(d.ts, 10),
+          symbol: d.symbol,
+          type: d.type,
+          direction: d.direction,
+          volume: parseFloat(d.volume),
+          price: parseFloat(d.price),
+          order: d.order_id,
+          positionId: d.position_id,
+          commission: parseFloat(d.commission),
+          fee: parseFloat(d.fee),
+          swap: parseFloat(d.swap),
+          profit: parseFloat(d.profit),
+          balance: parseFloat(d.balance),
+          comment: d.comment
+        };
+      });
+
+      var localDealIds = {};
+      state.deals.forEach(function(d) { localDealIds[d.id] = true; });
+      var remoteDealIds = {};
+      remoteDeals.forEach(function(d) { remoteDealIds[d.id] = true; });
+
+      var mergedDeals = state.deals.slice();
+      mappedRemoteDeals.forEach(function(rd) {
+        if (!localDealIds[rd.id]) {
+          mergedDeals.push(rd);
+          localDealIds[rd.id] = true;
+        }
+      });
+      mergedDeals.sort(function(a, b) { return a.ts - b.ts; });
+      state.deals = mergedDeals;
+
+      var dealsToUpload = state.deals.filter(function(d) {
+        return !remoteDealIds[d.id];
+      }).map(function(d) {
+        return {
+          id: d.id,
+          user_id: userId,
+          time: d.time,
+          ts: d.ts,
+          symbol: d.symbol,
+          type: d.type,
+          direction: d.direction,
+          volume: d.volume,
+          price: d.price,
+          order_id: d.order,
+          position_id: d.positionId,
+          commission: d.commission,
+          fee: d.fee,
+          swap: d.swap,
+          profit: d.profit,
+          balance: d.balance,
+          comment: d.comment
+        };
+      });
+
+      if (dealsToUpload.length > 0) {
+        var uploadDealsRes = await supabase.from('deals').insert(dealsToUpload);
+        if (uploadDealsRes.error) throw uploadDealsRes.error;
+      }
+
+      // 3. Merge Import Logs
+      var mappedRemoteLogs = remoteLogs.map(function(l) {
+        return {
+          file: l.file,
+          when: l.when_time,
+          totalInFile: l.total_in_file,
+          added: l.added,
+          skippedDup: l.skipped_dup
+        };
+      });
+
+      var logKey = function(l) { return l.file + "_" + l.when; };
+      var localLogKeys = {};
+      state.importLog.forEach(function(l) { localLogKeys[logKey(l)] = true; });
+      var remoteLogKeys = {};
+      remoteLogs.forEach(function(l) { remoteLogKeys[l.file + "_" + l.when_time] = true; });
+
+      var mergedLogs = state.importLog.slice();
+      mappedRemoteLogs.forEach(function(rl) {
+        var key = logKey(rl);
+        if (!localLogKeys[key]) {
+          mergedLogs.push(rl);
+          localLogKeys[key] = true;
+        }
+      });
+      mergedLogs.sort(function(a, b) { return new Date(b.when) - new Date(a.when); });
+      state.importLog = mergedLogs;
+
+      var logsToUpload = state.importLog.filter(function(l) {
+        return !remoteLogKeys[logKey(l)];
+      }).map(function(l) {
+        return {
+          user_id: userId,
+          file: l.file,
+          when_time: l.when,
+          total_in_file: l.totalInFile,
+          added: l.added,
+          skipped_dup: l.skippedDup
+        };
+      });
+
+      if (logsToUpload.length > 0) {
+        var uploadLogsRes = await supabase.from('import_logs').insert(logsToUpload);
+        if (uploadLogsRes.error) throw uploadLogsRes.error;
+      }
+
+      // 4. Merge Equity Snapshots
+      var mappedRemoteEquity = remoteEquity.map(function(e) {
+        return {
+          equity: parseFloat(e.equity),
+          balance: parseFloat(e.balance),
+          ts: parseInt(e.ts, 10),
+          file: e.file,
+          importedAt: parseInt(e.imported_at, 10)
+        };
+      });
+
+      var eqKey = function(e) { return e.ts + "_" + e.file; };
+      var localEqKeys = {};
+      state.equitySnapshots.forEach(function(e) { localEqKeys[eqKey(e)] = true; });
+      var remoteEqKeys = {};
+      remoteEquity.forEach(function(e) { remoteEqKeys[e.ts + "_" + e.file] = true; });
+
+      var mergedEquity = state.equitySnapshots.slice();
+      mappedRemoteEquity.forEach(function(re) {
+        var key = eqKey(re);
+        if (!localEqKeys[key]) {
+          mergedEquity.push(re);
+          localEqKeys[key] = true;
+        }
+      });
+      mergedEquity.sort(function(a, b) { return a.ts - b.ts; });
+      state.equitySnapshots = mergedEquity;
+
+      var equityToUpload = state.equitySnapshots.filter(function(e) {
+        return !remoteEqKeys[eqKey(e)];
+      }).map(function(e) {
+        return {
+          user_id: userId,
+          equity: e.equity,
+          balance: e.balance,
+          ts: e.ts,
+          file: e.file,
+          imported_at: e.importedAt
+        };
+      });
+
+      if (equityToUpload.length > 0) {
+        var uploadEqRes = await supabase.from('equity_snapshots').insert(equityToUpload);
+        if (uploadEqRes.error) throw uploadEqRes.error;
+      }
+
+      // 5. Sync settings
+      var localCcy = localStorage.getItem("mt5_growth_ccy_v1") || "VND";
+      var localFx = parseFloat(localStorage.getItem("mt5_growth_fx_v1")) || 26290;
+
+      if (remoteSettings) {
+        localStorage.setItem("mt5_growth_ccy_v1", remoteSettings.ccy_mode || "VND");
+        localStorage.setItem("mt5_growth_fx_v1", remoteSettings.fx_rate || 26290);
+      } else {
+        var uploadSettingsRes = await supabase.from('settings').upsert({
+          user_id: userId,
+          ccy_mode: localCcy,
+          fx_rate: localFx,
+          updated_at: new Date().toISOString()
+        });
+        if (uploadSettingsRes.error) throw uploadSettingsRes.error;
+      }
+
+      // 6. Cache to local storage
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state.deals));
+      localStorage.setItem(LOG_KEY, JSON.stringify(state.importLog));
+      localStorage.setItem(EQUITY_KEY, JSON.stringify(state.equitySnapshots));
+
+      renderAll();
+      document.dispatchEvent(new CustomEvent("mt5:currencyChanged"));
+
+      setSyncStatus("success");
+    } catch(err) {
+      console.error("Sync error:", err);
+      showToast("Lỗi đồng bộ: " + err.message);
+      setSyncStatus("error");
+    } finally {
+      syncState.isSyncing = false;
+      updateSyncUI();
+    }
+  }
+
+  async function handleLogin(email, password) {
+    if (!supabase) return;
+    try {
+      syncState.isSyncing = true;
+      updateSyncUI();
+      var res = await supabase.auth.signInWithPassword({ email: email, password: password });
+      if (res.error) throw res.error;
+      showToast("Đăng nhập thành công!");
+    } catch(err) {
+      showToast("Đăng nhập thất bại: " + err.message);
+      syncState.isSyncing = false;
+      updateSyncUI();
+    }
+  }
+
+  async function handleRegister(email, password) {
+    if (!supabase) return;
+    try {
+      syncState.isSyncing = true;
+      updateSyncUI();
+      var res = await supabase.auth.signUp({ email: email, password: password });
+      if (res.error) throw res.error;
+      if (res.data.session) {
+        showToast("Đăng ký thành công và đã tự động đăng nhập!");
+      } else {
+        showToast("Đăng ký thành công! Hãy kiểm tra email để kích hoạt tài khoản.");
+      }
+    } catch(err) {
+      showToast("Đăng ký thất bại: " + err.message);
+      syncState.isSyncing = false;
+      updateSyncUI();
+    }
+  }
+
+  async function handleLogout() {
+    if (!supabase) return;
+    try {
+      var res = await supabase.auth.signOut();
+      if (res.error) throw res.error;
+      showToast("Đã đăng xuất.");
+      syncState.user = null;
+      loadState();
+      renderAll();
+      updateSyncUI();
+    } catch(err) {
+      showToast("Đăng xuất thất bại: " + err.message);
+    }
+  }
+
+  // Bind Sync UI Buttons
+  document.getElementById("btnSyncLogin").addEventListener("click", function() {
+    var email = document.getElementById("syncEmail").value.trim();
+    var pass = document.getElementById("syncPassword").value.trim();
+    if (!email || !pass) {
+      showToast("Vui lòng điền email và mật khẩu.");
+      return;
+    }
+    handleLogin(email, pass);
+  });
+
+  document.getElementById("btnSyncRegister").addEventListener("click", function() {
+    var email = document.getElementById("syncEmail").value.trim();
+    var pass = document.getElementById("syncPassword").value.trim();
+    if (!email || !pass) {
+      showToast("Vui lòng điền email và mật khẩu.");
+      return;
+    }
+    if (pass.length < 6) {
+      showToast("Mật khẩu phải dài tối thiểu 6 ký tự.");
+      return;
+    }
+    handleRegister(email, pass);
+  });
+
+  document.getElementById("btnSyncLogout").addEventListener("click", handleLogout);
+  document.getElementById("btnSyncNow").addEventListener("click", syncData);
+
+  // Auth State Listener
+  if (supabase) {
+    supabase.auth.onAuthStateChange(function(evt, session) {
+      if (session) {
+        syncState.user = session.user;
+        updateSyncUI();
+        syncData();
+      } else {
+        syncState.user = null;
+        updateSyncUI();
+      }
+    });
+  }
+})();
+</script>
+
+<script>
+(function(){
+  "use strict";
+  var GM_DATA = {"meta":{"initialAssetUsd":2000,"fx":26290,"unit":"VND","initialAssetVnd":52580000,"dailyTargetPct":0.01,"monthlyTargetPct":0.22019003994796704,"dayLeft":17},"months":[{"year":"Năm 1","monthIndex":1,"monthLabelInYear":1,"days":[{"d":1,"p":0.01,"a":52580000,"pf":0,"cum":null},{"d":2,"p":0.01,"a":52580000,"pf":0,"cum":null},{"d":3,"p":0.01,"a":52580000,"pf":0,"cum":null},{"d":4,"p":0.01,"a":52580000,"pf":0,"cum":null},{"d":5,"p":0.01,"a":52580000,"pf":0,"cum":null},{"d":6,"p":0.01,"a":197091283.86,"pf":1951398.85,"cum":0.044852},{"d":7,"p":0.01,"a":199062196.7,"pf":1970912.84,"cum":0.055301},{"d":8,"p":0.01,"a":201052818.67,"pf":1990621.97,"cum":0.065854},{"d":9,"p":0.01,"a":203063346.85,"pf":2010528.19,"cum":0.076512},{"d":10,"p":0.01,"a":205093980.32,"pf":2030633.47,"cum":0.087278},{"d":11,"p":0.01,"a":207144920.13,"pf":2050939.8,"cum":0.09815},{"d":12,"p":0.01,"a":209216369.33,"pf":2071449.2,"cum":0.109132},{"d":13,"p":0.01,"a":211308533.02,"pf":2092163.69,"cum":0.120223},{"d":14,"p":0.01,"a":213421618.35,"pf":2113085.33,"cum":0.131425},{"d":15,"p":0.01,"a":215555834.53,"pf":2134216.18,"cum":0.14274},{"d":16,"p":0.01,"a":217711392.88,"pf":2155558.35,"cum":0.154167},{"d":17,"p":0.01,"a":219888506.81,"pf":2177113.93,"cum":0.165709},{"d":18,"p":0.01,"a":222087391.88,"pf":2198885.07,"cum":0.177366},{"d":19,"p":0.01,"a":224308265.8,"pf":2220873.92,"cum":0.189139},{"d":20,"p":0.01,"a":226551348.45,"pf":2243082.66,"cum":0.201031}],"startAsset":188630750,"target":230165362.377915,"status":"notHit","endAsset":226551348.45373726,"withdraw":41534612.377914995},{"year":"Năm 1","monthIndex":2,"monthLabelInYear":2,"days":[{"d":1,"p":0.01,"a":228816861.94,"pf":2265513.48,"cum":0.213041},{"d":2,"p":0.01,"a":231105030.56,"pf":2288168.62,"cum":0.225172},{"d":3,"p":0.01,"a":233416080.86,"pf":2311050.31,"cum":0.237423},{"d":4,"p":0.01,"a":235750241.67,"pf":2334160.81,"cum":0.249798},{"d":5,"p":0.01,"a":238107744.09,"pf":2357502.42,"cum":0.262295},{"d":6,"p":0.01,"a":240488821.53,"pf":2381077.44,"cum":0.274918},{"d":7,"p":0.01,"a":242893709.74,"pf":2404888.22,"cum":0.287668},{"d":8,"p":0.01,"a":245322646.84,"pf":2428937.1,"cum":0.300544},{"d":9,"p":0.01,"a":247775873.31,"pf":2453226.47,"cum":0.31355},{"d":10,"p":0.01,"a":250253632.04,"pf":2477758.73,"cum":0.326685},{"d":11,"p":0.01,"a":252756168.36,"pf":2502536.32,"cum":0.339952},{"d":12,"p":0.01,"a":255283730.05,"pf":2527561.68,"cum":0.353352},{"d":13,"p":0.01,"a":257836567.35,"pf":2552837.3,"cum":0.366885},{"d":14,"p":0.01,"a":260414933.02,"pf":2578365.67,"cum":0.380554},{"d":15,"p":0.01,"a":263019082.35,"pf":2604149.33,"cum":0.39436},{"d":16,"p":0.01,"a":265649273.18,"pf":2630190.82,"cum":0.408303},{"d":17,"p":0.01,"a":268305765.91,"pf":2656492.73,"cum":0.422386},{"d":18,"p":0.01,"a":270988823.57,"pf":2683057.66,"cum":0.43661},{"d":19,"p":0.01,"a":273698711.8,"pf":2709888.24,"cum":0.450976},{"d":20,"p":0.01,"a":276435698.92,"pf":2736987.12,"cum":0.465486}],"startAsset":228816861.93827462,"target":276435698.9200315,"status":"Hit","endAsset":276435698.9200314,"withdraw":49884350.46629423},{"year":"Năm 1","monthIndex":3,"monthLabelInYear":3,"days":[{"d":1,"p":0.01,"a":279200055.91,"pf":2764356.99,"cum":0.480141},{"d":2,"p":0.01,"a":281992056.47,"pf":2792000.56,"cum":0.494942},{"d":3,"p":0.01,"a":284811977.03,"pf":2819920.56,"cum":0.509892},{"d":4,"p":0.01,"a":287660096.8,"pf":2848119.77,"cum":0.52499},{"d":5,"p":0.01,"a":290536697.77,"pf":2876600.97,"cum":0.54024},{"d":6,"p":0.01,"a":293442064.75,"pf":2905366.98,"cum":0.555643},{"d":7,"p":0.01,"a":296376485.4,"pf":2934420.65,"cum":0.571199},{"d":8,"p":0.01,"a":299340250.25,"pf":2963764.85,"cum":0.586911},{"d":9,"p":0.01,"a":302333652.75,"pf":2993402.5,"cum":0.60278},{"d":10,"p":0.01,"a":305356989.28,"pf":3023336.53,"cum":0.618808},{"d":11,"p":0.01,"a":308410559.17,"pf":3053569.89,"cum":0.634996},{"d":12,"p":0.01,"a":311494664.77,"pf":3084105.59,"cum":0.651346},{"d":13,"p":0.01,"a":314609611.41,"pf":3114946.65,"cum":0.66786},{"d":14,"p":0.01,"a":317755707.53,"pf":3146096.11,"cum":0.684538},{"d":15,"p":0.01,"a":320933264.6,"pf":3177557.08,"cum":0.701384},{"d":16,"p":0.01,"a":324142597.25,"pf":3209332.65,"cum":0.718397},{"d":17,"p":0.01,"a":327384023.22,"pf":3241425.97,"cum":0.735581},{"d":18,"p":0.01,"a":330657863.45,"pf":3273840.23,"cum":0.752937},{"d":19,"p":0.01,"a":333964442.09,"pf":3306578.63,"cum":0.770467},{"d":20,"p":0.01,"a":337304086.51,"pf":3339644.42,"cum":0.788171}],"startAsset":279200055.9092317,"target":337304086.50827736,"status":"Hit","endAsset":337304086.5082775,"withdraw":60868387.58824593},{"year":"Năm 1","monthIndex":4,"monthLabelInYear":4,"days":[{"d":1,"p":0.01,"a":340677127.37,"pf":3373040.87,"cum":0.806053},{"d":2,"p":0.01,"a":344083898.65,"pf":3406771.27,"cum":0.824114},{"d":3,"p":0.01,"a":347524737.63,"pf":3440838.99,"cum":0.842355},{"d":4,"p":0.01,"a":350999985.01,"pf":3475247.38,"cum":0.860778},{"d":5,"p":0.01,"a":354509984.86,"pf":3509999.85,"cum":0.879386},{"d":6,"p":0.01,"a":358055084.71,"pf":3545099.85,"cum":0.89818},{"d":7,"p":0.01,"a":361635635.56,"pf":3580550.85,"cum":0.917162},{"d":8,"p":0.01,"a":365251991.91,"pf":3616356.36,"cum":0.936333},{"d":9,"p":0.01,"a":368904511.83,"pf":3652519.92,"cum":0.955697},{"d":10,"p":0.01,"a":372593556.95,"pf":3689045.12,"cum":0.975254},{"d":11,"p":0.01,"a":376319492.52,"pf":3725935.57,"cum":0.995006},{"d":12,"p":0.01,"a":380082687.44,"pf":3763194.93,"cum":1.014956},{"d":13,"p":0.01,"a":383883514.32,"pf":3800826.87,"cum":1.035106},{"d":14,"p":0.01,"a":387722349.46,"pf":3838835.14,"cum":1.055457},{"d":15,"p":0.01,"a":391599572.96,"pf":3877223.49,"cum":1.076011},{"d":16,"p":0.01,"a":395515568.69,"pf":3915995.73,"cum":1.096771},{"d":17,"p":0.01,"a":399470724.37,"pf":3955155.69,"cum":1.117739},{"d":18,"p":0.01,"a":403465431.62,"pf":3994707.24,"cum":1.138917},{"d":19,"p":0.01,"a":407500085.93,"pf":4034654.32,"cum":1.160306},{"d":20,"p":0.01,"a":411575086.79,"pf":4075000.86,"cum":1.181909}],"startAsset":340677127.3733603,"target":411575086.79114765,"status":"Hit","endAsset":411575086.7911477,"withdraw":74271000.28287017},{"year":"Năm 1","monthIndex":5,"monthLabelInYear":5,"days":[{"d":1,"p":0.01,"a":415690837.66,"pf":4115750.87,"cum":1.203728},{"d":2,"p":0.01,"a":419847746.04,"pf":4156908.38,"cum":1.225765},{"d":3,"p":0.01,"a":424046223.5,"pf":4198477.46,"cum":1.248023},{"d":4,"p":0.01,"a":428286685.73,"pf":4240462.23,"cum":1.270503},{"d":5,"p":0.01,"a":432569552.59,"pf":4282866.86,"cum":1.293208},{"d":6,"p":0.01,"a":436895248.11,"pf":4325695.53,"cum":1.31614},{"d":7,"p":0.01,"a":441264200.6,"pf":4368952.48,"cum":1.339302},{"d":8,"p":0.01,"a":445676842.6,"pf":4412642.01,"cum":1.362695},{"d":9,"p":0.01,"a":450133611.03,"pf":4456768.43,"cum":1.386321},{"d":10,"p":0.01,"a":454634947.14,"pf":4501336.11,"cum":1.410185},{"d":11,"p":0.01,"a":459181296.61,"pf":4546349.47,"cum":1.434287},{"d":12,"p":0.01,"a":463773109.58,"pf":4591812.97,"cum":1.458629},{"d":13,"p":0.01,"a":468410840.67,"pf":4637731.1,"cum":1.483216},{"d":14,"p":0.01,"a":473094949.08,"pf":4684108.41,"cum":1.508048},{"d":15,"p":0.01,"a":477825898.57,"pf":4730949.49,"cum":1.533128},{"d":16,"p":0.01,"a":482604157.55,"pf":4778258.99,"cum":1.55846},{"d":17,"p":0.01,"a":487430199.13,"pf":4826041.58,"cum":1.584044},{"d":18,"p":0.01,"a":492304501.12,"pf":4874301.99,"cum":1.609885},{"d":19,"p":0.01,"a":497227546.13,"pf":4923045.01,"cum":1.635984},{"d":20,"p":0.01,"a":502199821.59,"pf":4972275.46,"cum":1.662343}],"startAsset":415690837.65905917,"target":502199821.5932785,"status":"Hit","endAsset":502199821.5932784,"withdraw":90624734.80213082},{"year":"Năm 1","monthIndex":6,"monthLabelInYear":6,"days":[{"d":1,"p":0.01,"a":507221819.81,"pf":5021998.22,"cum":1.688967},{"d":2,"p":0.01,"a":512294038.01,"pf":5072218.2,"cum":1.715856},{"d":3,"p":0.01,"a":517416978.39,"pf":5122940.38,"cum":1.743015},{"d":4,"p":0.01,"a":522591148.17,"pf":5174169.78,"cum":1.770445},{"d":5,"p":0.01,"a":527817059.65,"pf":5225911.48,"cum":1.79815},{"d":6,"p":0.01,"a":533095230.25,"pf":5278170.6,"cum":1.826131},{"d":7,"p":0.01,"a":538426182.55,"pf":5330952.3,"cum":1.854392},{"d":8,"p":0.01,"a":543810444.38,"pf":5384261.83,"cum":1.882936},{"d":9,"p":0.01,"a":549248548.82,"pf":5438104.44,"cum":1.911766},{"d":10,"p":0.01,"a":554741034.31,"pf":5492485.49,"cum":1.940883},{"d":11,"p":0.01,"a":560288444.65,"pf":5547410.34,"cum":1.970292},{"d":12,"p":0.01,"a":565891329.1,"pf":5602884.45,"cum":1.999995},{"d":13,"p":0.01,"a":571550242.39,"pf":5658913.29,"cum":2.029995},{"d":14,"p":0.01,"a":577265744.81,"pf":5715502.42,"cum":2.060295},{"d":15,"p":0.01,"a":583038402.26,"pf":5772657.45,"cum":2.090898},{"d":16,"p":0.01,"a":588868786.28,"pf":5830384.02,"cum":2.121807},{"d":17,"p":0.01,"a":594757474.15,"pf":5888687.86,"cum":2.153025},{"d":18,"p":0.01,"a":600705048.89,"pf":5947574.74,"cum":2.184555},{"d":19,"p":0.01,"a":606712099.38,"pf":6007050.49,"cum":2.216401},{"d":20,"p":0.01,"a":612779220.37,"pf":6067120.99,"cum":2.248565}],"startAsset":507221819.8092112,"target":612779220.3717643,"status":"Hit","endAsset":612779220.3717644,"withdraw":110579398.7784859},{"year":"Năm 1","monthIndex":7,"monthLabelInYear":7,"days":[{"d":1,"p":0.01,"a":618907012.58,"pf":6127792.2,"cum":2.28105},{"d":2,"p":0.01,"a":625096082.7,"pf":6189070.13,"cum":2.313861},{"d":3,"p":0.01,"a":631347043.53,"pf":6250960.83,"cum":2.347},{"d":4,"p":0.01,"a":637660513.96,"pf":6313470.44,"cum":2.38047},{"d":5,"p":0.01,"a":644037119.1,"pf":6376605.14,"cum":2.414274},{"d":6,"p":0.01,"a":650477490.29,"pf":6440371.19,"cum":2.448417},{"d":7,"p":0.01,"a":656982265.2,"pf":6504774.9,"cum":2.482901},{"d":8,"p":0.01,"a":663552087.85,"pf":6569822.65,"cum":2.51773},{"d":9,"p":0.01,"a":670187608.73,"pf":6635520.88,"cum":2.552908},{"d":10,"p":0.01,"a":676889484.81,"pf":6701876.09,"cum":2.588437},{"d":11,"p":0.01,"a":683658379.66,"pf":6768894.85,"cum":2.624321},{"d":12,"p":0.01,"a":690494963.46,"pf":6836583.8,"cum":2.660564},{"d":13,"p":0.01,"a":697399913.09,"pf":6904949.63,"cum":2.69717},{"d":14,"p":0.01,"a":704373912.23,"pf":6973999.13,"cum":2.734142},{"d":15,"p":0.01,"a":711417651.35,"pf":7043739.12,"cum":2.771483},{"d":16,"p":0.01,"a":718531827.86,"pf":7114176.51,"cum":2.809198},{"d":17,"p":0.01,"a":725717146.14,"pf":7185318.28,"cum":2.84729},{"d":18,"p":0.01,"a":732974317.6,"pf":7257171.46,"cum":2.885763},{"d":19,"p":0.01,"a":740304060.78,"pf":7329743.18,"cum":2.92462},{"d":20,"p":0.01,"a":747707101.38,"pf":7403040.61,"cum":2.963866}],"startAsset":618907012.5754821,"target":747707101.3847073,"status":"Hit","endAsset":747707101.3847075,"withdraw":134927881.0129429},{"year":"Năm 1","monthIndex":8,"monthLabelInYear":8,"days":[{"d":1,"p":0.01,"a":755184172.4,"pf":7477071.01,"cum":3.003505},{"d":2,"p":0.01,"a":762736014.12,"pf":7551841.72,"cum":3.04354},{"d":3,"p":0.01,"a":770363374.26,"pf":7627360.14,"cum":3.083976},{"d":4,"p":0.01,"a":778067008.01,"pf":7703633.74,"cum":3.124815},{"d":5,"p":0.01,"a":785847678.09,"pf":7780670.08,"cum":3.166063},{"d":6,"p":0.01,"a":793706154.87,"pf":7858476.78,"cum":3.207724},{"d":7,"p":0.01,"a":801643216.42,"pf":7937061.55,"cum":3.249801},{"d":8,"p":0.01,"a":809659648.58,"pf":8016432.16,"cum":3.292299},{"d":9,"p":0.01,"a":817756245.07,"pf":8096596.49,"cum":3.335222},{"d":10,"p":0.01,"a":825933807.52,"pf":8177562.45,"cum":3.378575},{"d":11,"p":0.01,"a":834193145.59,"pf":8259338.08,"cum":3.42236},{"d":12,"p":0.01,"a":842535077.05,"pf":8341931.46,"cum":3.466584},{"d":13,"p":0.01,"a":850960427.82,"pf":8425350.77,"cum":3.51125},{"d":14,"p":0.01,"a":859470032.1,"pf":8509604.28,"cum":3.556362},{"d":15,"p":0.01,"a":868064732.42,"pf":8594700.32,"cum":3.601926},{"d":16,"p":0.01,"a":876745379.74,"pf":8680647.32,"cum":3.647945},{"d":17,"p":0.01,"a":885512833.54,"pf":8767453.8,"cum":3.694425},{"d":18,"p":0.01,"a":894367961.87,"pf":8855128.34,"cum":3.741369},{"d":19,"p":0.01,"a":903311641.49,"pf":8943679.62,"cum":3.788783},{"d":20,"p":0.01,"a":912344757.91,"pf":9033116.41,"cum":3.83667}],"startAsset":755184172.3985546,"target":912344757.9079849,"status":"Hit","endAsset":912344757.9079847,"withdraw":164637656.5232774},{"year":"Năm 1","monthIndex":9,"monthLabelInYear":9,"days":[{"d":1,"p":0.01,"a":921468205.49,"pf":9123447.58,"cum":3.885037},{"d":2,"p":0.01,"a":930682887.54,"pf":9214682.05,"cum":3.933887},{"d":3,"p":0.01,"a":939989716.42,"pf":9306828.88,"cum":3.983226},{"d":4,"p":0.01,"a":949389613.58,"pf":9399897.16,"cum":4.033059},{"d":5,"p":0.01,"a":958883509.72,"pf":9493896.14,"cum":4.083389},{"d":6,"p":0.01,"a":968472344.81,"pf":9588835.1,"cum":4.134223},{"d":7,"p":0.01,"a":978157068.26,"pf":9684723.45,"cum":4.185565},{"d":8,"p":0.01,"a":987938638.95,"pf":9781570.68,"cum":4.237421},{"d":9,"p":0.01,"a":997818025.33,"pf":9879386.39,"cum":4.289795},{"d":10,"p":0.01,"a":1007796205.59,"pf":9978180.25,"cum":4.342693},{"d":11,"p":0.01,"a":1017874167.64,"pf":10077962.06,"cum":4.39612},{"d":12,"p":0.01,"a":1028052909.32,"pf":10178741.68,"cum":4.450081},{"d":13,"p":0.01,"a":1038333438.41,"pf":10280529.09,"cum":4.504582},{"d":14,"p":0.01,"a":1048716772.8,"pf":10383334.38,"cum":4.559628},{"d":15,"p":0.01,"a":1059203940.53,"pf":10487167.73,"cum":4.615224},{"d":16,"p":0.01,"a":1069795979.93,"pf":10592039.41,"cum":4.671376},{"d":17,"p":0.01,"a":1080493939.73,"pf":10697959.8,"cum":4.72809},{"d":18,"p":0.01,"a":1091298879.13,"pf":10804939.4,"cum":4.785371},{"d":19,"p":0.01,"a":1102211867.92,"pf":10912988.79,"cum":4.843225},{"d":20,"p":0.01,"a":1113233986.6,"pf":11022118.68,"cum":4.901657}],"startAsset":921468205.4870646,"target":1113233986.5980623,"status":"Hit","endAsset":1113233986.5980623,"withdraw":200889228.69007754},{"year":"Năm 1","monthIndex":10,"monthLabelInYear":10,"days":[{"d":1,"p":0.01,"a":1124366326.46,"pf":11132339.87,"cum":4.960674},{"d":2,"p":0.01,"a":1135609989.73,"pf":11243663.26,"cum":5.02028},{"d":3,"p":0.01,"a":1146966089.63,"pf":11356099.9,"cum":5.080483},{"d":4,"p":0.01,"a":1158435750.52,"pf":11469660.9,"cum":5.141288},{"d":5,"p":0.01,"a":1170020108.03,"pf":11584357.51,"cum":5.202701},{"d":6,"p":0.01,"a":1181720309.11,"pf":11700201.08,"cum":5.264728},{"d":7,"p":0.01,"a":1193537512.2,"pf":11817203.09,"cum":5.327375},{"d":8,"p":0.01,"a":1205472887.32,"pf":11935375.12,"cum":5.390649},{"d":9,"p":0.01,"a":1217527616.19,"pf":12054728.87,"cum":5.454555},{"d":10,"p":0.01,"a":1229702892.36,"pf":12175276.16,"cum":5.519101},{"d":11,"p":0.01,"a":1241999921.28,"pf":12297028.92,"cum":5.584292},{"d":12,"p":0.01,"a":1254419920.49,"pf":12419999.21,"cum":5.650135},{"d":13,"p":0.01,"a":1266964119.7,"pf":12544199.2,"cum":5.716636},{"d":14,"p":0.01,"a":1279633760.89,"pf":12669641.2,"cum":5.783803},{"d":15,"p":0.01,"a":1292430098.5,"pf":12796337.61,"cum":5.851641},{"d":16,"p":0.01,"a":1305354399.49,"pf":12924300.99,"cum":5.920157},{"d":17,"p":0.01,"a":1318407943.48,"pf":13053543.99,"cum":5.989359},{"d":18,"p":0.01,"a":1331592022.92,"pf":13184079.43,"cum":6.059252},{"d":19,"p":0.01,"a":1344907943.15,"pf":13315920.23,"cum":6.129845},{"d":20,"p":0.01,"a":1358357022.58,"pf":13449079.43,"cum":6.201143}],"startAsset":1124366326.464043,"target":1358357022.578524,"status":"Hit","endAsset":1358357022.5785244,"withdraw":245123035.98046184},{"year":"Năm 1","monthIndex":11,"monthLabelInYear":11,"days":[{"d":1,"p":0.01,"a":1371940592.8,"pf":13583570.23,"cum":6.273155},{"d":2,"p":0.01,"a":1385659998.73,"pf":13719405.93,"cum":6.345886},{"d":3,"p":0.01,"a":1399516598.72,"pf":13856599.99,"cum":6.419345},{"d":4,"p":0.01,"a":1413511764.71,"pf":13995165.99,"cum":6.493538},{"d":5,"p":0.01,"a":1427646882.35,"pf":14135117.65,"cum":6.568474},{"d":6,"p":0.01,"a":1441923351.18,"pf":14276468.82,"cum":6.644159},{"d":7,"p":0.01,"a":1456342584.69,"pf":14419233.51,"cum":6.7206},{"d":8,"p":0.01,"a":1470906010.54,"pf":14563425.85,"cum":6.797806},{"d":9,"p":0.01,"a":1485615070.64,"pf":14709060.11,"cum":6.875784},{"d":10,"p":0.01,"a":1500471221.35,"pf":14856150.71,"cum":6.954542},{"d":11,"p":0.01,"a":1515475933.56,"pf":15004712.21,"cum":7.034087},{"d":12,"p":0.01,"a":1530630692.9,"pf":15154759.34,"cum":7.114428},{"d":13,"p":0.01,"a":1545936999.83,"pf":15306306.93,"cum":7.195573},{"d":14,"p":0.01,"a":1561396369.82,"pf":15459370.0,"cum":7.277528},{"d":15,"p":0.01,"a":1577010333.52,"pf":15613963.7,"cum":7.360304},{"d":16,"p":0.01,"a":1592780436.86,"pf":15770103.34,"cum":7.443907},{"d":17,"p":0.01,"a":1608708241.23,"pf":15927804.37,"cum":7.528346},{"d":18,"p":0.01,"a":1624795323.64,"pf":16087082.41,"cum":7.613629},{"d":19,"p":0.01,"a":1641043276.87,"pf":16247953.24,"cum":7.699765},{"d":20,"p":0.01,"a":1657453709.64,"pf":16410432.77,"cum":7.786763}],"startAsset":1371940592.8043096,"target":1657453709.6436913,"status":"Hit","endAsset":1657453709.6436908,"withdraw":299096687.06516695},{"year":"Năm 1","monthIndex":12,"monthLabelInYear":12,"days":[{"d":1,"p":0.01,"a":1674028246.74,"pf":16574537.1,"cum":7.874631},{"d":2,"p":0.01,"a":1690768529.21,"pf":16740282.47,"cum":7.963377},{"d":3,"p":0.01,"a":1707676214.5,"pf":16907685.29,"cum":8.053011},{"d":4,"p":0.01,"a":1724752976.64,"pf":17076762.14,"cum":8.143541},{"d":5,"p":0.01,"a":1742000506.41,"pf":17247529.77,"cum":8.234976},{"d":6,"p":0.01,"a":1759420511.48,"pf":17420005.06,"cum":8.327326},{"d":7,"p":0.01,"a":1777014716.59,"pf":17594205.11,"cum":8.420599},{"d":8,"p":0.01,"a":1794784863.76,"pf":17770147.17,"cum":8.514805},{"d":9,"p":0.01,"a":1812732712.39,"pf":17947848.64,"cum":8.609953},{"d":10,"p":0.01,"a":1830860039.52,"pf":18127327.12,"cum":8.706053},{"d":11,"p":0.01,"a":1849168639.91,"pf":18308600.4,"cum":8.803113},{"d":12,"p":0.01,"a":1867660326.31,"pf":18491686.4,"cum":8.901145},{"d":13,"p":0.01,"a":1886336929.57,"pf":18676603.26,"cum":9.000156},{"d":14,"p":0.01,"a":1905200298.87,"pf":18863369.3,"cum":9.100158},{"d":15,"p":0.01,"a":1924252301.86,"pf":19052002.99,"cum":9.201159},{"d":16,"p":0.01,"a":1943494824.88,"pf":19242523.02,"cum":9.303171},{"d":17,"p":0.01,"a":1962929773.13,"pf":19434948.25,"cum":9.406202},{"d":18,"p":0.01,"a":1982559070.86,"pf":19629297.73,"cum":9.510264},{"d":19,"p":0.01,"a":2002384661.57,"pf":19825590.71,"cum":9.615367},{"d":20,"p":0.01,"a":2022408508.18,"pf":20023846.62,"cum":9.721521},{"d":0,"p":null,"a":2022408508.18,"pf":0,"cum":null}],"startAsset":1674028246.7401278,"target":2022408508.1820412,"status":"Hit","endAsset":2022408508.1820416,"withdraw":364954798.53835034},{"year":"Năm 2","monthIndex":13,"monthLabelInYear":1,"days":[{"d":1,"p":0.01,"a":2042632593.26,"pf":20224085.08,"cum":0.01},{"d":2,"p":0.01,"a":2063058919.2,"pf":20426325.93,"cum":0.0201},{"d":3,"p":0.01,"a":2083689508.39,"pf":20630589.19,"cum":0.030301},{"d":4,"p":0.01,"a":2104526403.47,"pf":20836895.08,"cum":0.040604},{"d":5,"p":0.01,"a":2125571667.51,"pf":21045264.03,"cum":0.05101},{"d":6,"p":0.01,"a":2146827384.18,"pf":21255716.68,"cum":0.06152},{"d":7,"p":0.01,"a":2168295658.02,"pf":21468273.84,"cum":0.072135},{"d":8,"p":0.01,"a":2189978614.6,"pf":21682956.58,"cum":0.082857},{"d":9,"p":0.01,"a":2211878400.75,"pf":21899786.15,"cum":0.093685},{"d":10,"p":0.01,"a":2233997184.76,"pf":22118784.01,"cum":0.104622},{"d":11,"p":0.01,"a":2256337156.61,"pf":22339971.85,"cum":0.115668},{"d":12,"p":0.01,"a":2278900528.17,"pf":22563371.57,"cum":0.126825},{"d":13,"p":0.01,"a":2301689533.45,"pf":22789005.28,"cum":0.138093},{"d":14,"p":0.01,"a":2324706428.79,"pf":23016895.33,"cum":0.149474},{"d":15,"p":0.01,"a":2347953493.08,"pf":23247064.29,"cum":0.160969},{"d":16,"p":0.01,"a":2371433028.01,"pf":23479534.93,"cum":0.172579},{"d":17,"p":0.01,"a":2395147358.29,"pf":23714330.28,"cum":0.184304},{"d":18,"p":0.01,"a":2419098831.87,"pf":23951473.58,"cum":0.196147},{"d":19,"p":0.01,"a":2443289820.19,"pf":24190988.32,"cum":0.208109},{"d":20,"p":0.01,"a":2467722718.39,"pf":24432898.2,"cum":0.22019}],"startAsset":2042632593.2638621,"target":2467722718.389754,"status":"Hit","endAsset":2467722718.389754,"withdraw":445314210.2077122},{"year":"Năm 2","monthIndex":14,"monthLabelInYear":2,"days":[{"d":1,"p":0.01,"a":2492399945.57,"pf":24677227.18,"cum":0.232392},{"d":2,"p":0.01,"a":2517323945.03,"pf":24923999.46,"cum":0.244716},{"d":3,"p":0.01,"a":2542497184.48,"pf":25173239.45,"cum":0.257163},{"d":4,"p":0.01,"a":2567922156.32,"pf":25424971.84,"cum":0.269735},{"d":5,"p":0.01,"a":2593601377.89,"pf":25679221.56,"cum":0.282432},{"d":6,"p":0.01,"a":2619537391.67,"pf":25936013.78,"cum":0.295256},{"d":7,"p":0.01,"a":2645732765.58,"pf":26195373.92,"cum":0.308209},{"d":8,"p":0.01,"a":2672190093.24,"pf":26457327.66,"cum":0.321291},{"d":9,"p":0.01,"a":2698911994.17,"pf":26721900.93,"cum":0.334504},{"d":10,"p":0.01,"a":2725901114.11,"pf":26989119.94,"cum":0.347849},{"d":11,"p":0.01,"a":2753160125.25,"pf":27259011.14,"cum":0.361327},{"d":12,"p":0.01,"a":2780691726.51,"pf":27531601.25,"cum":0.374941},{"d":13,"p":0.01,"a":2808498643.77,"pf":27806917.27,"cum":0.38869},{"d":14,"p":0.01,"a":2836583630.21,"pf":28084986.44,"cum":0.402577},{"d":15,"p":0.01,"a":2864949466.51,"pf":28365836.3,"cum":0.416603},{"d":16,"p":0.01,"a":2893598961.18,"pf":28649494.67,"cum":0.430769},{"d":17,"p":0.01,"a":2922534950.79,"pf":28935989.61,"cum":0.445076},{"d":18,"p":0.01,"a":2951760300.3,"pf":29225349.51,"cum":0.459527},{"d":19,"p":0.01,"a":2981277903.3,"pf":29517603.0,"cum":0.474123},{"d":20,"p":0.01,"a":3011090682.33,"pf":29812779.03,"cum":0.488864}],"startAsset":2492399945.5736513,"target":3011090682.3324995,"status":"Hit","endAsset":3011090682.3324995,"withdraw":543367963.9427457},{"year":"Năm 2","monthIndex":15,"monthLabelInYear":3,"days":[{"d":1,"p":0.01,"a":3041201589.16,"pf":30110906.82,"cum":0.503752},{"d":2,"p":0.01,"a":3071613605.05,"pf":30412015.89,"cum":0.51879},{"d":3,"p":0.01,"a":3102329741.1,"pf":30716136.05,"cum":0.533978},{"d":4,"p":0.01,"a":3133353038.51,"pf":31023297.41,"cum":0.549318},{"d":5,"p":0.01,"a":3164686568.89,"pf":31333530.39,"cum":0.564811},{"d":6,"p":0.01,"a":3196333434.58,"pf":31646865.69,"cum":0.580459},{"d":7,"p":0.01,"a":3228296768.93,"pf":31963334.35,"cum":0.596263},{"d":8,"p":0.01,"a":3260579736.62,"pf":32282967.69,"cum":0.612226},{"d":9,"p":0.01,"a":3293185533.98,"pf":32605797.37,"cum":0.628348},{"d":10,"p":0.01,"a":3326117389.32,"pf":32931855.34,"cum":0.644632},{"d":11,"p":0.01,"a":3359378563.22,"pf":33261173.89,"cum":0.661078},{"d":12,"p":0.01,"a":3392972348.85,"pf":33593785.63,"cum":0.677689},{"d":13,"p":0.01,"a":3426902072.34,"pf":33929723.49,"cum":0.694466},{"d":14,"p":0.01,"a":3461171093.06,"pf":34269020.72,"cum":0.71141},{"d":15,"p":0.01,"a":3495782803.99,"pf":34611710.93,"cum":0.728525},{"d":16,"p":0.01,"a":3530740632.03,"pf":34957828.04,"cum":0.74581},{"d":17,"p":0.01,"a":3566048038.35,"pf":35307406.32,"cum":0.763268},{"d":18,"p":0.01,"a":3601708518.74,"pf":35660480.38,"cum":0.780901},{"d":19,"p":0.01,"a":3637725603.92,"pf":36017085.19,"cum":0.79871},{"d":20,"p":0.01,"a":3674102859.96,"pf":36377256.04,"cum":0.816697}],"startAsset":3041201589.1558247,"target":3674102859.962244,"status":"Hit","endAsset":3674102859.962244,"withdraw":663012177.6297445},{"year":"Năm 2","monthIndex":16,"monthLabelInYear":4,"days":[{"d":1,"p":0.01,"a":3710843888.56,"pf":36741028.6,"cum":0.834864},{"d":2,"p":0.01,"a":3747952327.45,"pf":37108438.89,"cum":0.853212},{"d":3,"p":0.01,"a":3785431850.72,"pf":37479523.27,"cum":0.871744},{"d":4,"p":0.01,"a":3823286169.23,"pf":37854318.51,"cum":0.890462},{"d":5,"p":0.01,"a":3861519030.92,"pf":38232861.69,"cum":0.909366},{"d":6,"p":0.01,"a":3900134221.23,"pf":38615190.31,"cum":0.92846},{"d":7,"p":0.01,"a":3939135563.44,"pf":39001342.21,"cum":0.947745},{"d":8,"p":0.01,"a":3978526919.08,"pf":39391355.63,"cum":0.967222},{"d":9,"p":0.01,"a":4018312188.27,"pf":39785269.19,"cum":0.986894},{"d":10,"p":0.01,"a":4058495310.15,"pf":40183121.88,"cum":1.006763},{"d":11,"p":0.01,"a":4099080263.25,"pf":40584953.1,"cum":1.026831},{"d":12,"p":0.01,"a":4140071065.88,"pf":40990802.63,"cum":1.047099},{"d":13,"p":0.01,"a":4181471776.54,"pf":41400710.66,"cum":1.06757},{"d":14,"p":0.01,"a":4223286494.31,"pf":41814717.77,"cum":1.088246},{"d":15,"p":0.01,"a":4265519359.25,"pf":42232864.94,"cum":1.109128},{"d":16,"p":0.01,"a":4308174552.84,"pf":42655193.59,"cum":1.13022},{"d":17,"p":0.01,"a":4351256298.37,"pf":43081745.53,"cum":1.151522},{"d":18,"p":0.01,"a":4394768861.36,"pf":43512562.98,"cum":1.173037},{"d":19,"p":0.01,"a":4438716549.97,"pf":43947688.61,"cum":1.194768},{"d":20,"p":0.01,"a":4483103715.47,"pf":44387165.5,"cum":1.216715}],"startAsset":3710843888.5618663,"target":4483103715.47027,"status":"notHit","endAsset":4483103715.470269,"withdraw":809000855.5080261},{"year":"Năm 2","monthIndex":17,"monthLabelInYear":5,"days":[{"d":1,"p":0.01,"a":4527934752.62,"pf":44831037.15,"cum":1.238882},{"d":2,"p":0.01,"a":4573214100.15,"pf":45279347.53,"cum":1.261271},{"d":3,"p":0.01,"a":4618946241.15,"pf":45732141.0,"cum":1.283884},{"d":4,"p":0.01,"a":4665135703.56,"pf":46189462.41,"cum":1.306723},{"d":5,"p":0.01,"a":4711787060.6,"pf":46651357.04,"cum":1.32979},{"d":6,"p":0.01,"a":4758904931.21,"pf":47117870.61,"cum":1.353088},{"d":7,"p":0.01,"a":4806493980.52,"pf":47589049.31,"cum":1.376619},{"d":8,"p":0.01,"a":4854558920.32,"pf":48064939.81,"cum":1.400385},{"d":9,"p":0.01,"a":4903104509.53,"pf":48545589.2,"cum":1.424389},{"d":10,"p":0.01,"a":4952135554.62,"pf":49031045.1,"cum":1.448633},{"d":11,"p":0.01,"a":5001656910.17,"pf":49521355.55,"cum":1.473119},{"d":12,"p":0.01,"a":5051673479.27,"pf":50016569.1,"cum":1.49785},{"d":13,"p":0.01,"a":5102190214.06,"pf":50516734.79,"cum":1.522829},{"d":14,"p":0.01,"a":5153212116.2,"pf":51021902.14,"cum":1.548057},{"d":15,"p":0.01,"a":5204744237.36,"pf":51532121.16,"cum":1.573538},{"d":16,"p":0.01,"a":5256791679.74,"pf":52047442.37,"cum":1.599273},{"d":17,"p":0.01,"a":5309359596.54,"pf":52567916.8,"cum":1.625266},{"d":18,"p":0.01,"a":5362453192.5,"pf":53093595.97,"cum":1.651518},{"d":19,"p":0.01,"a":5416077724.43,"pf":53624531.93,"cum":1.678033},{"d":20,"p":0.01,"a":5470238501.67,"pf":54160777.24,"cum":1.704814}],"startAsset":4527934752.624972,"target":5470238501.6705475,"status":"notHit","endAsset":5470238501.670547,"withdraw":987134786.2002783},{"year":"Năm 2","monthIndex":18,"monthLabelInYear":6,"days":[{"d":1,"p":0.01,"a":5524940886.69,"pf":54702385.02,"cum":1.731862},{"d":2,"p":0.01,"a":5580190295.55,"pf":55249408.87,"cum":1.759181},{"d":3,"p":0.01,"a":5635992198.51,"pf":55801902.96,"cum":1.786772},{"d":4,"p":0.01,"a":5692352120.49,"pf":56359921.99,"cum":1.81464},{"d":5,"p":0.01,"a":5749275641.7,"pf":56923521.2,"cum":1.842787},{"d":6,"p":0.01,"a":5806768398.12,"pf":57492756.42,"cum":1.871214},{"d":7,"p":0.01,"a":5864836082.1,"pf":58067683.98,"cum":1.899927},{"d":8,"p":0.01,"a":5923484442.92,"pf":58648360.82,"cum":1.928926},{"d":9,"p":0.01,"a":5982719287.35,"pf":59234844.43,"cum":1.958215},{"d":10,"p":0.01,"a":6042546480.22,"pf":59827192.87,"cum":1.987797},{"d":11,"p":0.01,"a":6102971945.02,"pf":60425464.8,"cum":2.017675},{"d":12,"p":0.01,"a":6164001664.47,"pf":61029719.45,"cum":2.047852},{"d":13,"p":0.01,"a":6225641681.12,"pf":61640016.64,"cum":2.07833},{"d":14,"p":0.01,"a":6287898097.93,"pf":62256416.81,"cum":2.109114},{"d":15,"p":0.01,"a":6350777078.91,"pf":62878980.98,"cum":2.140205},{"d":16,"p":0.01,"a":6414284849.7,"pf":63507770.79,"cum":2.171607},{"d":17,"p":0.01,"a":6478427698.2,"pf":64142848.5,"cum":2.203323},{"d":18,"p":0.01,"a":6543211975.18,"pf":64784276.98,"cum":2.235356},{"d":19,"p":0.01,"a":6608644094.93,"pf":65432119.75,"cum":2.26771},{"d":20,"p":0.01,"a":6674730535.88,"pf":66086440.95,"cum":2.300387}],"startAsset":5524940886.687252,"target":6674730535.878291,"status":"Hit","endAsset":6674730535.878292,"withdraw":1204492034.2077446},{"year":"Năm 2","monthIndex":19,"monthLabelInYear":7,"days":[{"d":1,"p":0.01,"a":6741477841.24,"pf":66747305.36,"cum":2.333391},{"d":2,"p":0.01,"a":6808892619.65,"pf":67414778.41,"cum":2.366725},{"d":3,"p":0.01,"a":6876981545.85,"pf":68088926.2,"cum":2.400392},{"d":4,"p":0.01,"a":6945751361.3,"pf":68769815.46,"cum":2.434396},{"d":5,"p":0.01,"a":7015208874.92,"pf":69457513.61,"cum":2.46874},{"d":6,"p":0.01,"a":7085360963.67,"pf":70152088.75,"cum":2.503427},{"d":7,"p":0.01,"a":7156214573.3,"pf":70853609.64,"cum":2.538461},{"d":8,"p":0.01,"a":7227776719.04,"pf":71562145.73,"cum":2.573846},{"d":9,"p":0.01,"a":7300054486.23,"pf":72277767.19,"cum":2.609585},{"d":10,"p":0.01,"a":7373055031.09,"pf":73000544.86,"cum":2.64568},{"d":11,"p":0.01,"a":7446785581.4,"pf":73730550.31,"cum":2.682137},{"d":12,"p":0.01,"a":7521253437.21,"pf":74467855.81,"cum":2.718959},{"d":13,"p":0.01,"a":7596465971.59,"pf":75212534.37,"cum":2.756148},{"d":14,"p":0.01,"a":7672430631.3,"pf":75964659.72,"cum":2.79371},{"d":15,"p":0.01,"a":7749154937.61,"pf":76724306.31,"cum":2.831647},{"d":16,"p":0.01,"a":7826646486.99,"pf":77491549.38,"cum":2.869963},{"d":17,"p":0.01,"a":7904912951.86,"pf":78266464.87,"cum":2.908663},{"d":18,"p":0.01,"a":7983962081.38,"pf":79049129.52,"cum":2.947749},{"d":19,"p":0.01,"a":8063801702.19,"pf":79839620.81,"cum":2.987227},{"d":20,"p":0.01,"a":8144439719.22,"pf":80638017.02,"cum":3.027099}],"startAsset":6741477841.237075,"target":8144439719.215249,"status":"notHit","endAsset":8144439719.215246,"withdraw":1469709183.336957},{"year":"Năm 2","monthIndex":20,"monthLabelInYear":8,"days":[{"d":1,"p":0.01,"a":8225884116.41,"pf":81444397.19,"cum":3.06737},{"d":2,"p":0.01,"a":8308142957.57,"pf":82258841.16,"cum":3.108044},{"d":3,"p":0.01,"a":8391224387.15,"pf":83081429.58,"cum":3.149124},{"d":4,"p":0.01,"a":8475136631.02,"pf":83912243.87,"cum":3.190616},{"d":5,"p":0.01,"a":8559887997.33,"pf":84751366.31,"cum":3.232522},{"d":6,"p":0.01,"a":8645486877.3,"pf":85598879.97,"cum":3.274847},{"d":7,"p":0.01,"a":8731941746.08,"pf":86454868.77,"cum":3.317595},{"d":8,"p":0.01,"a":8819261163.54,"pf":87319417.46,"cum":3.360771},{"d":9,"p":0.01,"a":8907453775.17,"pf":88192611.64,"cum":3.404379},{"d":10,"p":0.01,"a":8996528312.92,"pf":89074537.75,"cum":3.448423},{"d":11,"p":0.01,"a":9086493596.05,"pf":89965283.13,"cum":3.492907},{"d":12,"p":0.01,"a":9177358532.01,"pf":90864935.96,"cum":3.537836},{"d":13,"p":0.01,"a":9269132117.33,"pf":91773585.32,"cum":3.583215},{"d":14,"p":0.01,"a":9361823438.51,"pf":92691321.17,"cum":3.629047},{"d":15,"p":0.01,"a":9455441672.89,"pf":93618234.39,"cum":3.675337},{"d":16,"p":0.01,"a":9549996089.62,"pf":94554416.73,"cum":3.722091},{"d":17,"p":0.01,"a":9645496050.52,"pf":95499960.9,"cum":3.769311},{"d":18,"p":0.01,"a":9741951011.02,"pf":96454960.51,"cum":3.817005},{"d":19,"p":0.01,"a":9839370521.13,"pf":97419510.11,"cum":3.865175},{"d":20,"p":0.01,"a":9937764226.34,"pf":98393705.21,"cum":3.913826}],"startAsset":8225884116.407399,"target":9937764226.343061,"status":"Hit","endAsset":9937764226.343061,"withdraw":1793324507.1278152},{"year":"Năm 2","monthIndex":21,"monthLabelInYear":9,"days":[{"d":1,"p":0.01,"a":10037141868.61,"pf":99377642.26,"cum":3.962965},{"d":2,"p":0.01,"a":10137513287.29,"pf":100371418.69,"cum":4.012594},{"d":3,"p":0.01,"a":10238888420.17,"pf":101375132.87,"cum":4.06272},{"d":4,"p":0.01,"a":10341277304.37,"pf":102388884.2,"cum":4.113347},{"d":5,"p":0.01,"a":10444690077.41,"pf":103412773.04,"cum":4.164481},{"d":6,"p":0.01,"a":10549136978.18,"pf":104446900.77,"cum":4.216126},{"d":7,"p":0.01,"a":10654628347.97,"pf":105491369.78,"cum":4.268287},{"d":8,"p":0.01,"a":10761174631.45,"pf":106546283.48,"cum":4.32097},{"d":9,"p":0.01,"a":10868786377.76,"pf":107611746.31,"cum":4.37418},{"d":10,"p":0.01,"a":10977474241.54,"pf":108687863.78,"cum":4.427921},{"d":11,"p":0.01,"a":11087248983.95,"pf":109774742.42,"cum":4.482201},{"d":12,"p":0.01,"a":11198121473.79,"pf":110872489.84,"cum":4.537023},{"d":13,"p":0.01,"a":11310102688.53,"pf":111981214.74,"cum":4.592393},{"d":14,"p":0.01,"a":11423203715.42,"pf":113101026.89,"cum":4.648317},{"d":15,"p":0.01,"a":11537435752.57,"pf":114232037.15,"cum":4.7048},{"d":16,"p":0.01,"a":11652810110.1,"pf":115374357.53,"cum":4.761848},{"d":17,"p":0.01,"a":11769338211.2,"pf":116528101.1,"cum":4.819466},{"d":18,"p":0.01,"a":11887031593.31,"pf":117693382.11,"cum":4.877661},{"d":19,"p":0.01,"a":12005901909.24,"pf":118870315.93,"cum":4.936438},{"d":20,"p":0.01,"a":12125960928.34,"pf":120059019.09,"cum":4.995802}],"startAsset":10037141868.606493,"target":12125960928.335018,"status":"notHit","endAsset":12125960928.335016,"withdraw":2188196701.9919567},{"year":"Năm 2","monthIndex":22,"monthLabelInYear":10,"days":[{"d":1,"p":0.01,"a":12247220537.62,"pf":121259609.28,"cum":5.05576},{"d":2,"p":0.01,"a":12369692742.99,"pf":122472205.38,"cum":5.116318},{"d":3,"p":0.01,"a":12493389670.42,"pf":123696927.43,"cum":5.177481},{"d":4,"p":0.01,"a":12618323567.13,"pf":124933896.7,"cum":5.239256},{"d":5,"p":0.01,"a":12744506802.8,"pf":126183235.67,"cum":5.301648},{"d":6,"p":0.01,"a":12871951870.83,"pf":127445068.03,"cum":5.364665},{"d":7,"p":0.01,"a":13000671389.54,"pf":128719518.71,"cum":5.428311},{"d":8,"p":0.01,"a":13130678103.43,"pf":130006713.9,"cum":5.492594},{"d":9,"p":0.01,"a":13261984884.47,"pf":131306781.03,"cum":5.55752},{"d":10,"p":0.01,"a":13394604733.31,"pf":132619848.84,"cum":5.623096},{"d":11,"p":0.01,"a":13528550780.64,"pf":133946047.33,"cum":5.689326},{"d":12,"p":0.01,"a":13663836288.45,"pf":135285507.81,"cum":5.75622},{"d":13,"p":0.01,"a":13800474651.33,"pf":136638362.88,"cum":5.823782},{"d":14,"p":0.01,"a":13938479397.85,"pf":138004746.51,"cum":5.89202},{"d":15,"p":0.01,"a":14077864191.83,"pf":139384793.98,"cum":5.96094},{"d":16,"p":0.01,"a":14218642833.74,"pf":140778641.92,"cum":6.030549},{"d":17,"p":0.01,"a":14360829262.08,"pf":142186428.34,"cum":6.100855},{"d":18,"p":0.01,"a":14504437554.7,"pf":143608292.62,"cum":6.171863},{"d":19,"p":0.01,"a":14649481930.25,"pf":145044375.55,"cum":6.243582},{"d":20,"p":0.01,"a":14795976749.55,"pf":146494819.3,"cum":6.316018}],"startAsset":12247220537.618366,"target":14795976749.552591,"status":"Hit","endAsset":14795976749.552595,"withdraw":2670015821.217575},{"year":"Năm 2","monthIndex":23,"monthLabelInYear":11,"days":[{"d":1,"p":0.01,"a":14943936517.05,"pf":147959767.5,"cum":6.389178},{"d":2,"p":0.01,"a":15093375882.22,"pf":149439365.17,"cum":6.46307},{"d":3,"p":0.01,"a":15244309641.04,"pf":150933758.82,"cum":6.537701},{"d":4,"p":0.01,"a":15396752737.45,"pf":152443096.41,"cum":6.613078},{"d":5,"p":0.01,"a":15550720264.83,"pf":153967527.37,"cum":6.689208},{"d":6,"p":0.01,"a":15706227467.47,"pf":155507202.65,"cum":6.7661},{"d":7,"p":0.01,"a":15863289742.15,"pf":157062274.67,"cum":6.843761},{"d":8,"p":0.01,"a":16021922639.57,"pf":158632897.42,"cum":6.922199},{"d":9,"p":0.01,"a":16182141865.97,"pf":160219226.4,"cum":7.001421},{"d":10,"p":0.01,"a":16343963284.63,"pf":161821418.66,"cum":7.081435},{"d":11,"p":0.01,"a":16507402917.47,"pf":163439632.85,"cum":7.16225},{"d":12,"p":0.01,"a":16672476946.65,"pf":165074029.17,"cum":7.243872},{"d":13,"p":0.01,"a":16839201716.11,"pf":166724769.47,"cum":7.326311},{"d":14,"p":0.01,"a":17007593733.27,"pf":168392017.16,"cum":7.409574},{"d":15,"p":0.01,"a":17177669670.61,"pf":170075937.33,"cum":7.49367},{"d":16,"p":0.01,"a":17349446367.31,"pf":171776696.71,"cum":7.578606},{"d":17,"p":0.01,"a":17522940830.99,"pf":173494463.67,"cum":7.664392},{"d":18,"p":0.01,"a":17698170239.3,"pf":175229408.31,"cum":7.751036},{"d":19,"p":0.01,"a":17875151941.69,"pf":176981702.39,"cum":7.838547},{"d":20,"p":0.01,"a":18053903461.11,"pf":178751519.42,"cum":7.926932}],"startAsset":14943936517.04812,"target":18053903461.105774,"status":"notHit","endAsset":18053903461.10577,"withdraw":3257926711.553179},{"year":"Năm 2","monthIndex":24,"monthLabelInYear":12,"days":[{"d":1,"p":0.01,"a":18234442495.72,"pf":180539034.61,"cum":8.016201},{"d":2,"p":0.01,"a":18416786920.67,"pf":182344424.96,"cum":8.106363},{"d":3,"p":0.01,"a":18600954789.88,"pf":184167869.21,"cum":8.197427},{"d":4,"p":0.01,"a":18786964337.78,"pf":186009547.9,"cum":8.289401},{"d":5,"p":0.01,"a":18974833981.16,"pf":187869643.38,"cum":8.382295},{"d":6,"p":0.01,"a":19164582320.97,"pf":189748339.81,"cum":8.476118},{"d":7,"p":0.01,"a":19356228144.18,"pf":191645823.21,"cum":8.57088},{"d":8,"p":0.01,"a":19549790425.62,"pf":193562281.44,"cum":8.666588},{"d":9,"p":0.01,"a":19745288329.88,"pf":195497904.26,"cum":8.763254},{"d":10,"p":0.01,"a":19942741213.18,"pf":197452883.3,"cum":8.860887},{"d":11,"p":0.01,"a":20142168625.31,"pf":199427412.13,"cum":8.959496},{"d":12,"p":0.01,"a":20343590311.56,"pf":201421686.25,"cum":9.059091},{"d":13,"p":0.01,"a":20547026214.68,"pf":203435903.12,"cum":9.159681},{"d":14,"p":0.01,"a":20752496476.82,"pf":205470262.15,"cum":9.261278},{"d":15,"p":0.01,"a":20960021441.59,"pf":207524964.77,"cum":9.363891},{"d":16,"p":0.01,"a":21169621656.01,"pf":209600214.42,"cum":9.46753},{"d":17,"p":0.01,"a":21381317872.57,"pf":211696216.56,"cum":9.572205},{"d":18,"p":0.01,"a":21595131051.29,"pf":213813178.73,"cum":9.677927},{"d":19,"p":0.01,"a":21811082361.81,"pf":215951310.51,"cum":9.784707},{"d":20,"p":0.01,"a":22029193185.42,"pf":218110823.62,"cum":9.892554}],"startAsset":18234442495.716827,"target":22029193185.42339,"status":"Hit","endAsset":22029193185.42339,"withdraw":3975289724.3176193}]}
+;
+
+  var FX_KEY = "mt5_growth_fx_v1";
+  var CCY_KEY = "mt5_growth_ccy_v1";
+
+  var ccyMode = window.mt5_getCcyMode();
+  var fxRate = window.mt5_getFxRate();
+  var selectedMonthIndex = 1;
+  var blended = null; // { summaries }
+
+  function getInitialAssetUsd(){
+    var deals = (typeof window.getJournalDeals === "function") ? window.getJournalDeals() : [];
+    if(deals && deals.length > 0){
+      // Moc lenh giao dich dau tien (mo hoac dong)
+      var firstTradeIdx = -1;
+      for(var i=0; i<deals.length; i++){
+        if(deals[i].type === "buy" || deals[i].type === "sell"){ firstTradeIdx = i; break; }
+      }
+      // Von goc = tong cac lan nap/rut TRUOC lenh dau tien (gom moi lan nap ban dau).
+      if(firstTradeIdx > 0){
+        var preNet = 0, hasBalance = false;
+        for(var j=0; j<firstTradeIdx; j++){
+          if(deals[j].type === "balance"){ preNet += (parseFloat(deals[j].profit)||0); hasBalance = true; }
+        }
+        if(hasBalance && preNet > 0) return preNet;
+      }
+      // Du phong: so du ngay truoc lenh dong dau tien = so du - PL cua lenh do
+      var firstClosed = null;
+      for(var k=0; k<deals.length; k++){
+        var d = deals[k];
+        if((d.type === "buy" || d.type === "sell") && /out/.test(d.direction || "")){ firstClosed = d; break; }
+      }
+      if(firstClosed){
+        var balance = parseFloat(firstClosed.balance);
+        if(!isNaN(balance)){
+          var pnl = (parseFloat(firstClosed.profit) || 0) +
+                    (parseFloat(firstClosed.swap) || 0) +
+                    (parseFloat(firstClosed.commission) || 0) +
+                    (parseFloat(firstClosed.fee) || 0);
+          return balance - pnl;
+        }
+      }
+      var first = deals[0];
+      var firstBal = parseFloat(first.balance);
+      if(!isNaN(firstBal)){ return firstBal; }
+    }
+    return GM_DATA.meta.initialAssetUsd || 2000;
+  }
+
+  function getInitialAssetVnd(){
+    return getInitialAssetUsd() * fxRate;
+  }
+
+  var fmtIntVnd = new Intl.NumberFormat("en-US", {maximumFractionDigits:0});
+  var fmtUsd = new Intl.NumberFormat("en-US", {maximumFractionDigits:0});
+  function fmtPct(x, digits){
+    digits = digits===undefined?1:digits;
+    var s = (x*100).toFixed(digits);
+    s = s.replace(/0+$/,"").replace(/\.$/,"");
+    return s + "%";
+  }
+
+  function money(vndValue){
+    if(ccyMode === "USD"){
+      return "$" + fmtUsd.format(vndValue / (fxRate || 1));
+    }
+    return fmtIntVnd.format(vndValue) + " đ";
+  }
+  function moneySigned(vndValue){
+    var s = money(Math.abs(vndValue));
+    return (vndValue < 0 ? "-" : (vndValue > 0 ? "+" : "")) + s;
+  }
+
+  // ---------- Currency / FX controls ----------
+  function initCurrencyBar(){
+    try{
+      var savedCcy = localStorage.getItem(CCY_KEY);
+      if(savedCcy === "VND" || savedCcy === "USD") ccyMode = savedCcy;
+      var savedFx = parseFloat(localStorage.getItem(FX_KEY));
+      if(savedFx && savedFx > 0) fxRate = savedFx;
+    }catch(e){}
+
+    var fxInput = document.getElementById("gmFxRate");
+    fxInput.value = fxRate;
+    updateCcyButtons();
+
+    document.getElementById("gmCcyVnd").addEventListener("click", function(){ setCcy("VND"); });
+    document.getElementById("gmCcyUsd").addEventListener("click", function(){ setCcy("USD"); });
+
+    fxInput.addEventListener("change", function(){
+      var v = parseFloat(String(fxInput.value).replace(/[,\s]/g,""));
+      if(v && v > 0){
+        fxRate = v;
+        try{ localStorage.setItem(FX_KEY, String(v)); }catch(e){}
+        recomputeAndRender();
+        document.dispatchEvent(new CustomEvent("mt5:currencyChanged"));
+      } else {
+        fxInput.value = fxRate;
+      }
+    });
+  }
+  function updateCcyButtons(){
+    document.getElementById("gmCcyVnd").classList.toggle("active", ccyMode==="VND");
+    document.getElementById("gmCcyUsd").classList.toggle("active", ccyMode==="USD");
+  }
+  function setCcy(mode){
+    ccyMode = mode;
+    try{ localStorage.setItem(CCY_KEY, mode); }catch(e){}
+    updateCcyButtons();
+    renderAllGrowth();
+    document.dispatchEvent(new CustomEvent("mt5:currencyChanged"));
+  }
+
+  // ---------- Tabs ----------
+  function initTabs(){
+    var btns = document.querySelectorAll(".tab-btn");
+    btns.forEach(function(btn){
+      btn.addEventListener("click", function(){
+        btns.forEach(function(b){ b.classList.remove("active"); });
+        btn.classList.add("active");
+        document.querySelectorAll(".tab-pane").forEach(function(p){ p.hidden = true; });
+        document.getElementById(btn.getAttribute("data-tab")).hidden = false;
+        if(btn.getAttribute("data-tab") === "tabGrowth"){
+          recomputeAndRender();
+        }
+      });
+    });
+  }
+
+  // ---------- Business days left in current calendar month ----------
+  function businessDaysLeftInMonth(){
+    var now = new Date();
+    var end = new Date(now.getFullYear(), now.getMonth()+1, 0);
+    var d = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    var count = 0;
+    while(d <= end){
+      var day = d.getDay();
+      if(day !== 0 && day !== 6) count++;
+      d.setDate(d.getDate()+1);
+    }
+    return count;
+  }
+
+  // ---------- Pull actual daily P/L from Journal tab ----------
+  function getActualDailyPnlUsd(){
+    if(typeof window.getJournalDeals !== "function") return [];
+    var deals = window.getJournalDeals() || [];
+    var closed = deals.filter(function(d){
+      return (d.type === "buy" || d.type === "sell") && /out/.test(d.direction || "");
+    });
+    var byDate = {};
+    closed.forEach(function(d){
+      var key = String(d.time).slice(0,10); // "YYYY.MM.DD"
+      if(!byDate[key]) byDate[key] = 0;
+      byDate[key] += d.profit + (d.swap||0) + (d.commission||0) + (d.fee||0);
+    });
+    var dates = Object.keys(byDate).sort();
+    return dates.map(function(k){ return { dateStr:k, profitUsd:byDate[k] }; });
+  }
+
+  // Tong nap/rut theo tung ngay (USD). profit>0 = nap them, profit<0 = rut bot.
+  // Dung de dieu chinh "Tai san" trong mo hinh tang truong dung bang von thuc te, khong tinh la loi nhuan.
+  // Thoi diem mo lenh dau tien (deal giao dich dau tien, khong tinh cac dong nap/rut).
+  // Cac lan nap TRUOC moc nay = von goc, da nam trong getInitialAssetUsd() -> khong inject lai.
+  // Chi cac lan nap/rut SAU moc nay moi la "dong tien giua chung" can dieu chinh tai san.
+  function getFirstTradeTs(){
+    if(typeof window.getJournalDeals !== "function") return Infinity;
+    var deals = window.getJournalDeals() || [];
+    for(var i=0;i<deals.length;i++){
+      var d = deals[i];
+      if(d.type === "buy" || d.type === "sell"){ return d.ts; }
+    }
+    return Infinity;
+  }
+
+  function getDailyCashFlowUsd(){
+    if(typeof window.getJournalDeals !== "function") return {};
+    var deals = window.getJournalDeals() || [];
+    var firstTradeTs = getFirstTradeTs();
+    var byDate = {};
+    deals.forEach(function(d){
+      if(d.type !== "balance") return;
+      if(d.ts < firstTradeTs) return; // nap/rut truoc lenh dau = von goc, bo qua
+      var key = String(d.time).slice(0,10);
+      if(!byDate[key]) byDate[key] = 0;
+      byDate[key] += d.profit; // nap (+) / rut (-)
+    });
+    return byDate;
+  }
+
+  function yearLabelFor(monthCounter){
+    return "Năm " + (Math.floor((monthCounter-1)/12) + 1);
+  }
+
+  // ---------- Build model: 24 tháng x 20 ngày kế hoạch (giữ nguyên cấu trúc gốc),
+  // các ngày đã có lệnh đóng thực tế sẽ thay thế % kế hoạch theo đúng thứ tự thời gian ----------
+  function buildBlendedModel(){
+    // Danh sách 480 ô ngày theo đúng cấu trúc mô hình gốc (24 tháng x 20 ngày)
+    var slots = [];
+    GM_DATA.months.forEach(function(m){
+      m.days.forEach(function(day){
+        slots.push({ monthIdx:m.monthIndex, d:day.d, plannedPct: day.p });
+      });
+    });
+
+    // Chỉ những ô có % kế hoạch (ngày giao dịch thật sự trong mô hình) mới nhận dữ liệu thực tế
+    var tradableIdx = [];
+    slots.forEach(function(s,i){ if(s.plannedPct !== null && s.plannedPct !== undefined) tradableIdx.push(i); });
+
+    var actual = getActualDailyPnlUsd(); // ascending, real dates
+    for(var k=0; k<actual.length && k<tradableIdx.length; k++){
+      var idx = tradableIdx[k];
+      slots[idx].actualProfitUsd = actual[k].profitUsd;
+      slots[idx].actualDate = actual[k].dateStr;
+    }
+
+    var cashFlow = getDailyCashFlowUsd(); // { "YYYY.MM.DD": usdAmount } nap(+)/rut(-)
+    var appliedCash = {}; // danh dau ngay da ap dung dong tien de khong tinh trung
+    var asset = getInitialAssetVnd();
+    var monthStartAsset = {};
+    var monthCumCash = {}; // tong nap/rut cong don trong thang (VND) tinh den moi ngay
+    var curMonth = null;
+    var results = [];
+    slots.forEach(function(s){
+      if(s.monthIdx !== curMonth){ monthStartAsset[s.monthIdx] = asset; monthCumCash[s.monthIdx] = 0; curMonth = s.monthIdx; }
+      var pctUsed, profitVnd, source, dateLabel;
+      var cashVnd = 0;
+      if(s.actualProfitUsd !== undefined){
+        // Neu ngay nay co nap/rut tien: cong vao tai san TRUOC khi tinh % (khong tinh la loi nhuan)
+        if(s.actualDate && cashFlow[s.actualDate] && !appliedCash[s.actualDate]){
+          cashVnd = cashFlow[s.actualDate] * fxRate;
+          appliedCash[s.actualDate] = true;
+        }
+        asset = asset + cashVnd; // dieu chinh von goc theo dong tien thuc
+        monthCumCash[s.monthIdx] += cashVnd;
+        profitVnd = s.actualProfitUsd * fxRate;
+        pctUsed = asset > 0 ? profitVnd/asset : 0;
+        source = "actual";
+        dateLabel = s.actualDate;
+      } else if(s.plannedPct !== null && s.plannedPct !== undefined){
+        pctUsed = s.plannedPct;
+        profitVnd = asset * pctUsed;
+        source = "plan";
+      } else {
+        pctUsed = 0; profitVnd = 0; source = "plan";
+      }
+      var assetBefore = asset;
+      asset = asset + profitVnd;
+      results.push({
+        monthIdx:s.monthIdx, d:s.d, pctUsed:pctUsed, profitVnd:profitVnd, cashVnd:cashVnd,
+        cumCash: monthCumCash[s.monthIdx],
+        assetBefore:assetBefore, assetAfter:asset, source:source, dateLabel:dateLabel
+      });
+    });
+
+    var summaries = GM_DATA.months.map(function(m){
+      var daySlots = results.filter(function(s){ return s.monthIdx === m.monthIndex; });
+      var startAsset = monthStartAsset[m.monthIndex];
+      var endAsset = daySlots.length ? daySlots[daySlots.length-1].assetAfter : startAsset;
+      var monthCash = daySlots.length ? (daySlots[daySlots.length-1].cumCash || 0) : 0;
+      var target = startAsset * (1 + GM_DATA.meta.monthlyTargetPct);
+      // "Hit" so sanh tang truong do GIAO DICH (loai tru nap/rut) voi muc tieu
+      var endAssetTradingOnly = endAsset - monthCash;
+      var status = (endAssetTradingOnly >= target - 1e-6) ? "Hit" : "notHit";
+      var withdraw = target - startAsset;
+      var hasActual = daySlots.some(function(s){ return s.source === "actual"; });
+      return {
+        year: yearLabelFor(m.monthIndex), monthIndex: m.monthIndex, startAsset:startAsset, target:target,
+        endAsset:endAsset, monthCash:monthCash, endAssetTradingOnly:endAssetTradingOnly,
+        status:status, withdraw:withdraw, hasActual:hasActual, days:daySlots
+      };
+    });
+
+    // Neu con lenh thuc te chua duoc gan (vuot qua 480 o ke hoach), noi them vao cuoi thang cuoi cung
+    if(actual.length > tradableIdx.length){
+      var lastSummary = summaries[summaries.length-1];
+      var overflowCumCash = lastSummary.days.length ? (lastSummary.days[lastSummary.days.length-1].cumCash || 0) : 0;
+      for(var e=tradableIdx.length; e<actual.length; e++){
+        var a = actual[e];
+        var cashVnd3 = 0;
+        if(a.dateStr && cashFlow[a.dateStr] && !appliedCash[a.dateStr]){
+          cashVnd3 = cashFlow[a.dateStr] * fxRate;
+          appliedCash[a.dateStr] = true;
+        }
+        asset = asset + cashVnd3;
+        overflowCumCash += cashVnd3;
+        var profitVnd3 = a.profitUsd * fxRate;
+        var pctUsed3 = asset > 0 ? profitVnd3/asset : 0;
+        var assetBefore3 = asset;
+        asset = asset + profitVnd3;
+        var extraDay = { monthIdx:lastSummary.monthIndex, d:lastSummary.days.length+1, pctUsed:pctUsed3, profitVnd:profitVnd3, cashVnd:cashVnd3, cumCash:overflowCumCash, assetBefore:assetBefore3, assetAfter:asset, source:"actual", dateLabel:a.dateStr };
+        lastSummary.days.push(extraDay);
+        lastSummary.endAsset = asset;
+        lastSummary.monthCash = overflowCumCash;
+        lastSummary.endAssetTradingOnly = asset - overflowCumCash;
+        lastSummary.hasActual = true;
+        lastSummary.status = (lastSummary.endAssetTradingOnly >= lastSummary.target - 1e-6) ? "Hit" : "notHit";
+      }
+    }
+
+    return { summaries: summaries };
+  }
+
+  function recomputeAndRender(){
+    blended = buildBlendedModel();
+    if(selectedMonthIndex > blended.summaries.length) selectedMonthIndex = 1;
+    renderAllGrowth();
+  }
+
+  // ---------- KPI banner ----------
+  function renderKpis(){
+    var grid = document.getElementById("gmKpiGrid");
+    var summaries = blended.summaries;
+    var last = summaries[summaries.length-1];
+    var daysLeft = businessDaysLeftInMonth();
+
+    // Uu tien Equity thuc te tu bao cao MT5 moi nhat da import (tab Nhat ky giao dich);
+    // neu khong doc duoc Equity thi dung so du (balance) cua lenh gan nhat;
+    // chi khi CHUA import gi thi moi dung tai san du bao tu mo hinh ke hoach
+    var realEquityUsd = (typeof window.getLatestAccountEquity === "function") ? window.getLatestAccountEquity() : null;
+    var lastBalanceUsd = (typeof window.getLatestDealBalance === "function") ? window.getLatestDealBalance() : null;
+    var currentAssetVnd;
+    if(realEquityUsd !== null && realEquityUsd !== undefined){
+      currentAssetVnd = realEquityUsd * fxRate;
+    } else if(lastBalanceUsd !== null && lastBalanceUsd !== undefined){
+      currentAssetVnd = lastBalanceUsd * fxRate;
+    } else {
+      currentAssetVnd = last.endAsset;
+    }
+
+    var items = [
+      {label:"Vốn ban đầu", value: money(getInitialAssetVnd())},
+      {label:"Mục tiêu / ngày", value: fmtPct(GM_DATA.meta.dailyTargetPct)},
+      {label:"Mục tiêu / tháng", value: fmtPct(GM_DATA.meta.monthlyTargetPct)},
+      {label:"Tài sản hiện tại", value: money(currentAssetVnd)},
+      {label:"Trong tháng còn", value: daysLeft + " ngày"}
+    ];
+    grid.innerHTML = items.map(function(it){
+      return "<div class=\"kpi\"><div class=\"label\">" + it.label + "</div><div class=\"value\">" + it.value + "</div></div>";
+    }).join("");
+  }
+
+  // ---------- Monthly table ----------
+  function renderMonthTable(){
+    var body = document.getElementById("gmMonthBody");
+    var rows = [];
+    var lastYear = null;
+    // Tang truong luy ke = Loi nhuan giao dich luy ke / Von binh quan gia quyen theo ngay (toan bo lich su).
+    var cumProfitAll = 0, cumCapitalAll = 0, dayCountAll = 0;
+    blended.summaries.forEach(function(m){
+      if(m.year !== lastYear){
+        rows.push("<tr class=\"gm-year-sep\"><td colspan=\"7\">" + m.year + "</td></tr>");
+        lastYear = m.year;
+      }
+      // Cong don von & loi nhuan cua tung ngay trong thang nay vao chuoi luy ke toan bo
+      (m.days || []).forEach(function(s){
+        cumProfitAll += s.profitVnd;
+        cumCapitalAll += s.assetBefore;
+        dayCountAll += 1;
+      });
+      var avgCapAll = dayCountAll ? (cumCapitalAll / dayCountAll) : 0;
+      var growthPct = avgCapAll > 0 ? (cumProfitAll / avgCapAll) : 0;
+      var statusHtml = m.status === "Hit"
+        ? "<span class=\"status-pill hit\">Hit</span>"
+        : "<span class=\"status-pill nothit\">notHit</span>";
+      var selCls = (m.monthIndex === selectedMonthIndex) ? " sel" : "";
+      var actualTag = m.hasActual ? " <span class=\"src-pill actual\" title=\"Tháng có dữ liệu thực tế\">thực tế</span>" : "";
+      rows.push(
+        "<tr class=\"gm-row" + selCls + "\" data-i=\"" + (m.monthIndex-1) + "\">" +
+        "<td>Tháng " + m.monthIndex + actualTag + "</td>" +
+        "<td>" + money(m.startAsset) + "</td>" +
+        "<td>" + money(m.target) + "</td>" +
+        "<td>" + money(m.endAsset) + "</td>" +
+        "<td>" + fmtPct(growthPct) + "</td>" +
+        "<td>" + statusHtml + "</td>" +
+        "<td>" + (m.withdraw > 0 ? money(m.withdraw) : "—") + "</td>" +
+        "</tr>"
+      );
+    });
+    body.innerHTML = rows.join("");
+    document.getElementById("gmMonthMeta").textContent = blended.summaries.length + " tháng · nhấp vào 1 dòng để xem chi tiết theo ngày";
+
+    body.querySelectorAll(".gm-row").forEach(function(tr){
+      tr.addEventListener("click", function(){
+        selectedMonthIndex = parseInt(tr.getAttribute("data-i"),10) + 1;
+        renderMonthTable();
+        renderDayDetail();
+      });
+    });
+  }
+
+  // ---------- Day detail ----------
+  function renderDayDetail(){
+    var m = blended.summaries[selectedMonthIndex-1];
+    document.getElementById("gmDetailMonthLabel").textContent = m.year + " · Tháng " + m.monthIndex;
+    var body = document.getElementById("gmDayBody");
+    // Lai kep % (luy ke tu dau thang) = Loi nhuan giao dich luy ke / Von binh quan gia quyen theo ngay.
+    // Von binh quan = trung binh von lam viec (assetBefore) cua tung ngay giao dich, moi ngay trong so 1.
+    // Cach nay cong bang khi nap/rut giua thang: von moi nap chi tinh cho so ngay no thuc su ton tai.
+    var cumProfit = 0, cumCapital = 0, dayCount = 0;
+    body.innerHTML = m.days.map(function(s){
+      var pnlCls = s.source !== "actual" ? "pnl-plan" : (s.profitVnd > 0 ? "pnl-pos" : (s.profitVnd < 0 ? "pnl-neg" : ""));
+      var cashNote = (s.cashVnd && Math.abs(s.cashVnd) > 0)
+        ? " <span class=\"src-pill\" style=\"background:rgba(59,130,246,.15);color:#3b82f6\" title=\"Điều chỉnh vốn (nạp/rút) — không tính là lợi nhuận\">" +
+          (s.cashVnd > 0 ? "Nạp " : "Rút ") + moneySigned(s.cashVnd) + "</span>"
+        : "";
+      var srcHtml = (s.source === "actual"
+        ? "<span class=\"src-pill actual\">Thực tế" + (s.dateLabel ? " · " + s.dateLabel : "") + "</span>"
+        : "<span class=\"src-pill plan\">Kế hoạch</span>") + cashNote;
+
+      // Cong don von & loi nhuan den ngay nay
+      cumProfit += s.profitVnd;
+      cumCapital += s.assetBefore; // von lam viec trong ngay (da gom nap/rut trong ngay)
+      dayCount += 1;
+      var avgCapital = dayCount ? (cumCapital / dayCount) : 0;
+      var compoundPct = avgCapital > 0 ? (cumProfit / avgCapital) : 0;
+
+      return "<tr>" +
+        "<td>Ngày " + s.d + "</td>" +
+        "<td class=\"" + pnlCls + "\">" + fmtPct(s.pctUsed) + "</td>" +
+        "<td class=\"" + pnlCls + "\">" + moneySigned(s.profitVnd) + "</td>" +
+        "<td>" + money(s.assetAfter) + "</td>" +
+        "<td style=\"text-align:center\">" + fmtPct(compoundPct) + "</td>" +
+        "<td style=\"text-align:center\">" + srcHtml + "</td>" +
+        "</tr>";
+    }).join("");
+
+    document.getElementById("gmPrevMonth").disabled = selectedMonthIndex <= 1;
+    document.getElementById("gmNextMonth").disabled = selectedMonthIndex >= blended.summaries.length;
+  }
+
+  function renderAllGrowth(){
+    if(!blended) blended = buildBlendedModel();
+    renderKpis();
+    renderMonthTable();
+    renderDayDetail();
+  }
+
+  document.getElementById("gmPrevMonth").addEventListener("click", function(){
+    if(selectedMonthIndex > 1){ selectedMonthIndex--; renderMonthTable(); renderDayDetail(); }
+  });
+  document.getElementById("gmNextMonth").addEventListener("click", function(){
+    if(blended && selectedMonthIndex < blended.summaries.length){ selectedMonthIndex++; renderMonthTable(); renderDayDetail(); }
+  });
+
+  // Tu dong cap nhat khi ben tab Nhat ky giao dich import/xoa du lieu
+  document.addEventListener("mt5:dataChanged", function(){
+    if(!document.getElementById("tabGrowth").hidden){
+      recomputeAndRender();
+    } else {
+      blended = null; // force recompute lan sau khi mo tab
+    }
+  });
+
+  initCurrencyBar();
+  initTabs();
+})();
+</script>
+</body>
+</html>
