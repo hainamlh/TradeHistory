@@ -251,6 +251,34 @@
   }
   .src-pill.actual{ background:rgba(38,166,154,0.14); color:var(--up); }
   .src-pill.plan{ background:var(--panel-2); color:var(--muted); }
+  .src-pill.closed{ background:rgba(212,175,55,0.16); color:var(--gold); }
+  .gm-daily-select{
+    font-family:var(--mono); font-size:16px; font-weight:700; text-align:center;
+    background:var(--panel-2); color:var(--gold); border:1px solid var(--line);
+    border-radius:7px; padding:5px 8px; cursor:pointer;
+  }
+  .gm-daily-select:focus-visible{ outline:2px solid var(--gold); outline-offset:1px; }
+
+  /* Nut ket so / hoan tac ket so */
+  .gm-close-bar{
+    display:flex; align-items:center; gap:12px; flex-wrap:wrap;
+    margin:0 0 16px; padding:12px 14px; border:1px solid var(--line);
+    border-radius:9px; background:var(--panel-2);
+  }
+  .gm-close-bar .gm-close-info{ font-size:13px; color:var(--muted); flex:1 1 200px; line-height:1.5; }
+  .gm-close-bar .gm-close-info b{ color:var(--text); }
+  .btn-close-month{
+    font-family:var(--mono); font-size:13px; font-weight:700; cursor:pointer;
+    background:var(--gold); color:#1a1a1a; border:none; border-radius:7px; padding:9px 16px;
+  }
+  .btn-close-month:hover{ filter:brightness(1.08); }
+  .btn-close-month:disabled{ opacity:.4; cursor:not-allowed; }
+  .btn-undo-close{
+    font-family:var(--mono); font-size:12.5px; cursor:pointer;
+    background:transparent; color:var(--muted); border:1px solid var(--line); border-radius:7px; padding:8px 12px;
+  }
+  .btn-undo-close:hover{ color:var(--text); border-color:var(--muted); }
+  .btn-undo-close:disabled{ opacity:.4; cursor:not-allowed; }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 </head>
@@ -420,6 +448,12 @@
   </div><!-- /#tabJournal -->
 
   <div id="tabGrowth" class="tab-pane" hidden>
+
+    <div class="gm-close-bar">
+      <div class="gm-close-info" id="gmCloseInfo"></div>
+      <button class="btn-undo-close" id="gmUndoClose">↩ Hoàn tác kết sổ</button>
+      <button class="btn-close-month" id="gmCloseMonth">Kết sổ tháng</button>
+    </div>
 
     <div class="gm-kpi-grid" id="gmKpiGrid"></div>
 
@@ -2140,6 +2174,69 @@
   var selectedMonthIndex = 1;
   var blended = null; // { summaries }
 
+  // ---------- Ket so thang ----------
+  // closedMonths: mang so LENH THUC TE da chot cho tung thang da ket so, theo thu tu.
+  // Vi du [7, 12] = thang 1 chot sau 7 lenh thuc te, thang 2 chot sau 12 lenh thuc te.
+  // Cac lenh thuc te con lai (sau tong so nay) thuoc thang dang chay hien tai.
+  var CLOSED_KEY = "mt5_growth_closed_v1";
+  // ---------- Muc tieu ngay (tuy chon) -> suy ra muc tieu tuan & thang ----------
+  // Tuan = 5 ngay giao dich, Thang = 20 ngay giao dich (theo cau truc mo hinh goc).
+  var DAILY_KEY = "mt5_growth_daily_v1";
+  var DAILY_OPTIONS = [0.01, 0.013, 0.015, 0.017];
+  function getDailyTarget(){
+    try{
+      var v = parseFloat(localStorage.getItem(DAILY_KEY));
+      if(v && DAILY_OPTIONS.indexOf(v) >= 0) return v;
+    }catch(e){}
+    return GM_DATA.meta.dailyTargetPct || 0.01;
+  }
+  function setDailyTarget(v){
+    try{ localStorage.setItem(DAILY_KEY, String(v)); }catch(e){}
+  }
+  function weeklyTargetFrom(daily){ return Math.pow(1 + daily, 5) - 1; }
+  function monthlyTargetFrom(daily){ return Math.pow(1 + daily, 20) - 1; }
+
+  function getClosedMonths(){
+    try{
+      var raw = localStorage.getItem(CLOSED_KEY);
+      if(!raw) return [];
+      var arr = JSON.parse(raw);
+      return Array.isArray(arr) ? arr.filter(function(n){ return typeof n === "number" && n >= 0; }) : [];
+    }catch(e){ return []; }
+  }
+  function setClosedMonths(arr){
+    try{ localStorage.setItem(CLOSED_KEY, JSON.stringify(arr)); }catch(e){}
+  }
+  // So lenh thuc te thuoc thang dang chay (chua ket so) = tong lenh - tong da chot
+  function getRunningMonthTradeCount(){
+    var total = getActualDailyPnlUsd().length;
+    var closed = getClosedMonths();
+    var sumClosed = closed.reduce(function(a,b){ return a + b; }, 0);
+    return Math.max(0, total - sumClosed);
+  }
+  // Ket so: chot thang dang chay tai so lenh thuc te hien co, nhay sang thang moi
+  function closeCurrentMonth(){
+    var running = getRunningMonthTradeCount();
+    if(running <= 0){
+      alert("Tháng đang chạy chưa có lệnh thực tế nào để kết sổ.\nHãy import báo cáo giao dịch trước khi kết sổ.");
+      return;
+    }
+    if(!confirm("Kết sổ tháng đang chạy?\n\n• Chốt " + running + " ngày giao dịch thực tế của tháng này.\n• Xóa các ngày kế hoạch còn trống của tháng.\n• Vốn cuối tháng này sẽ thành vốn đầu tháng mới.\n\nCó thể hoàn tác bằng nút \"Hoàn tác kết sổ\".")) return;
+    var closed = getClosedMonths();
+    closed.push(running);
+    setClosedMonths(closed);
+    recomputeAndRender();
+  }
+  // Hoan tac lan ket so gan nhat
+  function undoLastClose(){
+    var closed = getClosedMonths();
+    if(closed.length === 0) return;
+    if(!confirm("Hoàn tác lần kết sổ gần nhất?\nTháng vừa chốt sẽ được mở lại và gộp với tháng đang chạy.")) return;
+    closed.pop();
+    setClosedMonths(closed);
+    recomputeAndRender();
+  }
+
   function getInitialAssetUsd(){
     var deals = (typeof window.getJournalDeals === "function") ? window.getJournalDeals() : [];
     if(deals && deals.length > 0){
@@ -2327,23 +2424,70 @@
   // ---------- Build model: 24 tháng x 20 ngày kế hoạch (giữ nguyên cấu trúc gốc),
   // các ngày đã có lệnh đóng thực tế sẽ thay thế % kế hoạch theo đúng thứ tự thời gian ----------
   function buildBlendedModel(){
+    var dailyTarget = getDailyTarget();
+    var monthlyTarget = monthlyTargetFrom(dailyTarget);
     // Danh sách 480 ô ngày theo đúng cấu trúc mô hình gốc (24 tháng x 20 ngày)
     var slots = [];
     GM_DATA.months.forEach(function(m){
       m.days.forEach(function(day){
+        // Bo qua o rac d:0 (dong phan tach/tong ket cuoi nam lot vao khi trich Excel — khong phai ngay giao dich)
+        if(day.d === 0 || day.d === null || day.d === undefined) return;
         slots.push({ monthIdx:m.monthIndex, d:day.d, plannedPct: day.p });
       });
     });
 
-    // Chỉ những ô có % kế hoạch (ngày giao dịch thật sự trong mô hình) mới nhận dữ liệu thực tế
-    var tradableIdx = [];
-    slots.forEach(function(s,i){ if(s.plannedPct !== null && s.plannedPct !== undefined) tradableIdx.push(i); });
+    // Chỉ những ô có % kế hoạch (ngày giao dịch thật sự trong mô hình) mới nhận dữ liệu thực tế.
+    // Nhom cac o tradable theo tung thang de ton trong ranh gioi ket so.
+    var tradableByMonth = {}; // monthIdx -> [slotIndex,...]
+    var monthOrder = [];      // danh sach monthIdx theo thu tu xuat hien
+    slots.forEach(function(s,i){
+      if(s.plannedPct === null || s.plannedPct === undefined) return;
+      if(!tradableByMonth[s.monthIdx]){ tradableByMonth[s.monthIdx] = []; monthOrder.push(s.monthIdx); }
+      tradableByMonth[s.monthIdx].push(i);
+    });
 
     var actual = getActualDailyPnlUsd(); // ascending, real dates
-    for(var k=0; k<actual.length && k<tradableIdx.length; k++){
-      var idx = tradableIdx[k];
-      slots[idx].actualProfitUsd = actual[k].profitUsd;
-      slots[idx].actualDate = actual[k].dateStr;
+    var closedMonths = getClosedMonths(); // so lenh thuc te da chot cho tung thang da ket so
+
+    // Phan bo lenh thuc te vao tung thang.
+    // - Thang DA ket so thu n: lay dung closedMonths[n] lenh, o ke hoach con trong -> xoa (removed).
+    // - Thang DANG CHAY (thang dau tien chua ket so): nhan TOAN BO lenh con lai.
+    //   Neu vuot qua 20 o co san thi tu them ngay ao (ngay 21, 22, ...) vao chinh thang do,
+    //   khong tran sang thang sau. Cac thang sau van giu ke hoach mac dinh (chua chay toi).
+    var actualCursor = 0;
+    var runningMonthIdx = null; // thang dang chay (chua ket so)
+    for(var mo = 0; mo < monthOrder.length; mo++){
+      var mIdx = monthOrder[mo];
+      var monthSlots = tradableByMonth[mIdx];
+      var isClosed = mo < closedMonths.length;
+
+      if(isClosed){
+        // Thang da ket so: lap dung so lenh da chot, xoa o trong
+        var take = Math.min(closedMonths[mo], monthSlots.length);
+        var filled = 0;
+        for(var si = 0; si < monthSlots.length; si++){
+          var slotIndex = monthSlots[si];
+          if(filled < take && actualCursor < actual.length){
+            slots[slotIndex].actualProfitUsd = actual[actualCursor].profitUsd;
+            slots[slotIndex].actualDate = actual[actualCursor].dateStr;
+            actualCursor++; filled++;
+          } else {
+            slots[slotIndex].removed = true;
+          }
+        }
+        tradableByMonth["_closed_" + mIdx] = true;
+      } else {
+        // Day la thang dang chay: nhan toan bo lenh con lai
+        runningMonthIdx = mIdx;
+        for(var si2 = 0; si2 < monthSlots.length && actualCursor < actual.length; si2++){
+          var slotIdx2 = monthSlots[si2];
+          slots[slotIdx2].actualProfitUsd = actual[actualCursor].profitUsd;
+          slots[slotIdx2].actualDate = actual[actualCursor].dateStr;
+          actualCursor++;
+        }
+        // Cac o ke hoach con trong cua thang dang chay -> giu nguyen (du phong)
+        break; // dung o thang dang chay, khong dua lenh sang thang sau
+      }
     }
 
     var cashFlow = getDailyCashFlowUsd(); // { "YYYY.MM.DD": usdAmount } nap(+)/rut(-)
@@ -2354,6 +2498,7 @@
     var curMonth = null;
     var results = [];
     slots.forEach(function(s){
+      if(s.removed) return; // o ke hoach trong cua thang da ket so -> bo qua
       if(s.monthIdx !== curMonth){ monthStartAsset[s.monthIdx] = asset; monthCumCash[s.monthIdx] = 0; curMonth = s.monthIdx; }
       var pctUsed, profitVnd, source, dateLabel;
       var cashVnd = 0;
@@ -2370,7 +2515,7 @@
         source = "actual";
         dateLabel = s.actualDate;
       } else if(s.plannedPct !== null && s.plannedPct !== undefined){
-        pctUsed = s.plannedPct;
+        pctUsed = dailyTarget; // dung muc tieu ngay da chon
         profitVnd = asset * pctUsed;
         source = "plan";
       } else {
@@ -2390,24 +2535,31 @@
       var startAsset = monthStartAsset[m.monthIndex];
       var endAsset = daySlots.length ? daySlots[daySlots.length-1].assetAfter : startAsset;
       var monthCash = daySlots.length ? (daySlots[daySlots.length-1].cumCash || 0) : 0;
-      var target = startAsset * (1 + GM_DATA.meta.monthlyTargetPct);
+      var target = startAsset * (1 + monthlyTarget);
       // "Hit" so sanh tang truong do GIAO DICH (loai tru nap/rut) voi muc tieu
       var endAssetTradingOnly = endAsset - monthCash;
       var status = (endAssetTradingOnly >= target - 1e-6) ? "Hit" : "notHit";
       var withdraw = target - startAsset;
       var hasActual = daySlots.some(function(s){ return s.source === "actual"; });
+      var isClosedMonth = !!tradableByMonth["_closed_" + m.monthIndex];
       return {
         year: yearLabelFor(m.monthIndex), monthIndex: m.monthIndex, startAsset:startAsset, target:target,
         endAsset:endAsset, monthCash:monthCash, endAssetTradingOnly:endAssetTradingOnly,
-        status:status, withdraw:withdraw, hasActual:hasActual, days:daySlots
+        status:status, withdraw:withdraw, hasActual:hasActual, closed:isClosedMonth, days:daySlots
       };
     });
 
-    // Neu con lenh thuc te chua duoc gan (vuot qua 480 o ke hoach), noi them vao cuoi thang cuoi cung
-    if(actual.length > tradableIdx.length){
-      var lastSummary = summaries[summaries.length-1];
+    // Neu con lenh thuc te chua duoc gan (thang dang chay vuot qua 20 o ke hoach),
+    // noi them ngay ao vao CHINH thang dang chay (ngay 21, 22, ...), khong tran sang thang khac.
+    if(actualCursor < actual.length){
+      var runIdx = (runningMonthIdx !== null) ? runningMonthIdx : (monthOrder.length ? monthOrder[monthOrder.length-1] : 1);
+      var lastSummary = null;
+      for(var s2=0; s2<summaries.length; s2++){ if(summaries[s2].monthIndex === runIdx){ lastSummary = summaries[s2]; break; } }
+      if(!lastSummary) lastSummary = summaries[summaries.length-1];
       var overflowCumCash = lastSummary.days.length ? (lastSummary.days[lastSummary.days.length-1].cumCash || 0) : 0;
-      for(var e=tradableIdx.length; e<actual.length; e++){
+      // Bat dau tu tai san CUOI cua thang dang chay (khong dung bien asset da troi qua cac thang plan sau)
+      asset = lastSummary.endAsset;
+      for(var e=actualCursor; e<actual.length; e++){
         var a = actual[e];
         var cashVnd3 = 0;
         if(a.dateStr && cashFlow[a.dateStr] && !appliedCash[a.dateStr]){
@@ -2444,7 +2596,6 @@
     var grid = document.getElementById("gmKpiGrid");
     var summaries = blended.summaries;
     var last = summaries[summaries.length-1];
-    var daysLeft = businessDaysLeftInMonth();
 
     // Uu tien Equity thuc te tu bao cao MT5 moi nhat da import (tab Nhat ky giao dich);
     // neu khong doc duoc Equity thi dung so du (balance) cua lenh gan nhat;
@@ -2460,16 +2611,35 @@
       currentAssetVnd = last.endAsset;
     }
 
+    var dailyTarget = getDailyTarget();
+    var weeklyTarget = weeklyTargetFrom(dailyTarget);
+    var monthlyTarget = monthlyTargetFrom(dailyTarget);
+
+    var dailyOptionsHtml = DAILY_OPTIONS.map(function(v){
+      return "<option value=\"" + v + "\"" + (Math.abs(v - dailyTarget) < 1e-9 ? " selected" : "") + ">" + fmtPct(v) + "</option>";
+    }).join("");
+
     var items = [
       {label:"Vốn ban đầu", value: money(getInitialAssetVnd())},
-      {label:"Mục tiêu / ngày", value: fmtPct(GM_DATA.meta.dailyTargetPct)},
-      {label:"Mục tiêu / tháng", value: fmtPct(GM_DATA.meta.monthlyTargetPct)},
-      {label:"Tài sản hiện tại", value: money(currentAssetVnd)},
-      {label:"Trong tháng còn", value: daysLeft + " ngày"}
+      {label:"Mục tiêu / ngày", value: "<select id=\"gmDailySelect\" class=\"gm-daily-select\">" + dailyOptionsHtml + "</select>"},
+      {label:"Mục tiêu / tuần", value: fmtPct(weeklyTarget)},
+      {label:"Mục tiêu / tháng", value: fmtPct(monthlyTarget)},
+      {label:"Tài sản hiện tại", value: money(currentAssetVnd)}
     ];
     grid.innerHTML = items.map(function(it){
       return "<div class=\"kpi\"><div class=\"label\">" + it.label + "</div><div class=\"value\">" + it.value + "</div></div>";
     }).join("");
+
+    var sel = document.getElementById("gmDailySelect");
+    if(sel){
+      sel.addEventListener("change", function(){
+        var v = parseFloat(sel.value);
+        if(DAILY_OPTIONS.indexOf(v) >= 0){
+          setDailyTarget(v);
+          recomputeAndRender();
+        }
+      });
+    }
   }
 
   // ---------- Monthly table ----------
@@ -2497,9 +2667,10 @@
         : "<span class=\"status-pill nothit\">notHit</span>";
       var selCls = (m.monthIndex === selectedMonthIndex) ? " sel" : "";
       var actualTag = m.hasActual ? " <span class=\"src-pill actual\" title=\"Tháng có dữ liệu thực tế\">thực tế</span>" : "";
+      var closedTag = m.closed ? " <span class=\"src-pill closed\" title=\"Tháng đã kết sổ\">đã chốt</span>" : "";
       rows.push(
         "<tr class=\"gm-row" + selCls + "\" data-i=\"" + (m.monthIndex-1) + "\">" +
-        "<td>Tháng " + m.monthIndex + actualTag + "</td>" +
+        "<td>Tháng " + m.monthIndex + actualTag + closedTag + "</td>" +
         "<td>" + money(m.startAsset) + "</td>" +
         "<td>" + money(m.target) + "</td>" +
         "<td>" + money(m.endAsset) + "</td>" +
@@ -2561,12 +2732,34 @@
     document.getElementById("gmNextMonth").disabled = selectedMonthIndex >= blended.summaries.length;
   }
 
+  function renderCloseBar(){
+    var closed = getClosedMonths();
+    var running = getRunningMonthTradeCount();
+    var info = document.getElementById("gmCloseInfo");
+    var runningMonthNo = closed.length + 1;
+    var parts = [];
+    parts.push("Đang ở <b>Tháng " + runningMonthNo + "</b> — <b>" + running + "</b>/20 ngày giao dịch thực tế.");
+    if(running > 20){
+      parts.push("<span style=\"color:var(--gold)\">(vượt kế hoạch 20 ngày — hệ thống tự cộng thêm ngày cho tháng này)</span>");
+    }
+    if(closed.length > 0){
+      parts.push("Đã kết sổ <b>" + closed.length + "</b> tháng.");
+    }
+    info.innerHTML = parts.join(" ");
+    document.getElementById("gmCloseMonth").disabled = (running <= 0);
+    document.getElementById("gmUndoClose").disabled = (closed.length === 0);
+  }
+
   function renderAllGrowth(){
     if(!blended) blended = buildBlendedModel();
+    renderCloseBar();
     renderKpis();
     renderMonthTable();
     renderDayDetail();
   }
+
+  document.getElementById("gmCloseMonth").addEventListener("click", closeCurrentMonth);
+  document.getElementById("gmUndoClose").addEventListener("click", undoLastClose);
 
   document.getElementById("gmPrevMonth").addEventListener("click", function(){
     if(selectedMonthIndex > 1){ selectedMonthIndex--; renderMonthTable(); renderDayDetail(); }
