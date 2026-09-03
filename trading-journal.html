@@ -2601,6 +2601,16 @@
       var actualTag = m.hasActual ? " <span class=\"src-pill actual\" title=\"Tháng có dữ liệu thực tế\">thực tế</span>" : "";
       var calLabel = blended.startYM ? modelMonthIdxToLabel(m.monthIndex, blended.startYM) : "";
       var calHtml = calLabel ? " <span style=\"color:var(--muted);font-size:11px\">· " + calLabel + "</span>" : "";
+      // Cot "Loi nhuan": thang co giao dich thuc te -> loi nhuan THUC TE (tang truong do giao dich, loai nap/rut);
+      // thang chua co giao dich -> loi nhuan KE HOACH (muc tieu - von dau thang).
+      var profitCell;
+      if(m.hasActual){
+        var realProfit = m.endAssetTradingOnly - m.startAsset;
+        var profitCls = realProfit >= 0 ? "up" : "down";
+        profitCell = "<span class=\"" + profitCls + "\">" + moneySigned(realProfit) + "</span>";
+      } else {
+        profitCell = (m.withdraw > 0 ? money(m.withdraw) : "—");
+      }
       rows.push(
         "<tr class=\"gm-row" + selCls + "\" data-i=\"" + (m.monthIndex-1) + "\">" +
         "<td>Tháng " + m.monthIndex + calHtml + actualTag + "</td>" +
@@ -2609,7 +2619,7 @@
         "<td>" + money(m.endAsset) + "</td>" +
         "<td>" + fmtPct(growthPct) + "</td>" +
         "<td>" + statusHtml + "</td>" +
-        "<td>" + (m.withdraw > 0 ? money(m.withdraw) : "—") + "</td>" +
+        "<td>" + profitCell + "</td>" +
         "</tr>"
       );
     });
