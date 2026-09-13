@@ -2823,6 +2823,7 @@
 
     // Tong hop KPI thang
     var tradeDays = 0, winDays = 0, lossDays = 0, bestPct = null, bestDayNo = null, monthPnl = 0, planPnl = 0;
+    var lastActualAsset = null; // tai san thuc te sau ngay GD cuoi cung (khong tinh ngay ke hoach)
     days.forEach(function(s){
       if(s.source === "actual"){
         tradeDays++;
@@ -2830,10 +2831,13 @@
         if(s.profitVnd > 0) winDays++;
         else if(s.profitVnd < 0) lossDays++;
         if(bestPct === null || s.pctUsed > bestPct){ bestPct = s.pctUsed; bestDayNo = s.d; }
+        lastActualAsset = s.assetAfter;
       } else {
         planPnl += s.profitVnd; // loi nhuan cac ngay ke hoach (chua giao dich)
       }
     });
+    // Von hien tai = tai san thuc te den ngay GD cuoi; neu thang chua co GD -> von dau thang
+    var currentAsset = (lastActualAsset !== null) ? lastActualAsset : m.startAsset;
 
     var monthTargetPct = monthlyTargetFrom(getDailyTarget());
     var monthActualPct = (m.startAsset && m.startAsset > 0) ? (monthPnl / m.startAsset) : 0;
@@ -2844,9 +2848,9 @@
         kpiBox("Tổng lợi nhuận tháng", moneySigned(monthPnl), monthPnl >= 0 ? "up" : "down") +
         kpiBox("Lợi nhuận kế hoạch", moneySigned(planPnl), planPnl >= 0 ? "up" : "down") +
         kpiBox("Mục tiêu / Thực hiện", fmtPct(monthTargetPct) + " / <span class=\"" + (monthHit ? "up" : "down") + "\">" + fmtPct(monthActualPct) + "</span>", "") +
-        kpiBox("Số ngày giao dịch", String(tradeDays), "") +
-        kpiBox("Ngày thắng / thua", "<span class=\"up\">" + winDays + "</span> / <span class=\"down\">" + lossDays + "</span>", "") +
-        kpiBox("Ngày tốt nhất", (bestPct !== null ? fmtPct(bestPct) + " <span style=\"color:var(--muted);font-size:11px\">· Ngày " + bestDayNo + "</span>" : "—"), bestPct !== null && bestPct >= 0 ? "up" : (bestPct !== null ? "down" : "")) +
+        kpiBox("Vốn đầu tháng", money(m.startAsset), "") +
+        kpiBox("Vốn hiện tại", money(currentAsset), "") +
+        kpiBox("Nạp / rút", (Math.abs(m.monthCash) > 0 ? moneySigned(m.monthCash) : "—"), m.monthCash > 0 ? "up" : (m.monthCash < 0 ? "down" : "")) +
       "</div>";
 
     // Header (7 thu + Tong tuan)
