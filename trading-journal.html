@@ -419,6 +419,7 @@
     </div>
     <label class="gm-fx-label">Tỷ giá
       <input type="text" inputmode="decimal" id="gmFxRate" class="gm-fx-input" style="width:78px">
+      <button class="small ghost" id="gmFxReset" title="Về mặc định 25800" style="padding:4px 8px;">↺</button>
     </label>
     <label class="gm-fx-label" id="gmDailyWrap" hidden>Mục tiêu / ngày
       <select id="gmDailySelect" class="gm-daily-select"></select>
@@ -1032,9 +1033,9 @@
   window.mt5_getFxRate = function() {
     try {
       var savedFx = parseFloat(localStorage.getItem("mt5_growth_fx_v1"));
-      return (savedFx && savedFx > 0) ? savedFx : 26000;
+      return (savedFx && savedFx > 0) ? savedFx : 25800;
     } catch(e) {
-      return 26000;
+      return 25800;
     }
   };
 
@@ -2153,11 +2154,11 @@
 
       // 5. Sync settings
       var localCcy = localStorage.getItem("mt5_growth_ccy_v1") || "USD";
-      var localFx = parseFloat(localStorage.getItem("mt5_growth_fx_v1")) || 26000;
+      var localFx = parseFloat(localStorage.getItem("mt5_growth_fx_v1")) || 25800;
 
       if (remoteSettings) {
         localStorage.setItem("mt5_growth_ccy_v1", remoteSettings.ccy_mode || "USD");
-        localStorage.setItem("mt5_growth_fx_v1", remoteSettings.fx_rate || 26000);
+        localStorage.setItem("mt5_growth_fx_v1", remoteSettings.fx_rate || 25800);
       } else {
         var uploadSettingsRes = await supabase.from('settings').upsert({
           user_id: userId,
@@ -2401,6 +2402,17 @@
         fxInput.value = fxRate;
       }
     });
+
+    var fxReset = document.getElementById("gmFxReset");
+    if(fxReset){
+      fxReset.addEventListener("click", function(){
+        try{ localStorage.removeItem(FX_KEY); }catch(e){}
+        fxRate = 25800; // mac dinh
+        fxInput.value = fxRate;
+        recomputeAndRender();
+        document.dispatchEvent(new CustomEvent("mt5:currencyChanged"));
+      });
+    }
   }
   function updateCcyButtons(){
     // Doc truc tiep tu nguon chan ly duy nhat (giong het gia tri KPI dung) de nut va so luon khop
