@@ -296,12 +296,13 @@
   }
   .gm-cal-cell{
     border:1px solid var(--line); border-radius:10px; background:var(--panel-2);
-    min-height:60px; padding:7px 8px; display:flex; flex-direction:column; justify-content:space-between; gap:2px;
+    min-height:74px; padding:7px 8px; display:flex; flex-direction:column; justify-content:space-between; gap:2px;
   }
   .gm-cal-cell.empty{ background:transparent; border-color:transparent; }
   .gm-cal-cell .dnum{ font-family:var(--mono); font-size:12px; color:var(--muted); text-align:center; }
   .gm-cal-cell .dpnl{ font-family:var(--mono); font-size:13px; font-weight:800; white-space:nowrap; text-align:center; }
-  .gm-cal-cell .dpct{ font-family:var(--mono); font-size:11px; color:var(--muted); text-align:center; margin-bottom:4px; }
+  .gm-cal-cell .dpct{ font-family:var(--mono); font-size:11.5px; color:var(--text); text-align:center; }
+  .gm-cal-cell .dasset{ font-family:var(--mono); font-size:11.5px; color:var(--text); text-align:center; border-top:1px solid var(--line); padding-top:3px; white-space:nowrap; }
   .gm-cal-cell.pos{ background:rgba(38,166,154,0.10); border-color:rgba(38,166,154,0.35); }
   .gm-cal-cell.pos .dpnl{ color:var(--up); }
   .gm-cal-cell.neg{ background:rgba(239,83,80,0.10); border-color:rgba(239,83,80,0.35); }
@@ -355,11 +356,12 @@
     .gm-cal-cell.empty{ display:none; }         /* an o trong T7/CN va o thieu */
     .gm-cal-cell{
       flex-direction:row; align-items:center; justify-content:space-between;
-      min-height:0; padding:10px 12px; margin-bottom:6px; gap:10px;
+      min-height:0; padding:10px 12px; margin-bottom:6px; gap:10px; flex-wrap:wrap;
     }
     .gm-cal-cell .dnum{ font-size:12.5px; flex:0 0 auto; }
     .gm-cal-cell .dpnl{ font-size:14px; margin-top:0; margin-left:auto; }
     .gm-cal-cell .dpct{ font-size:11px; flex:0 0 auto; min-width:34px; text-align:right; }
+    .gm-cal-cell .dasset{ flex:1 0 100%; text-align:right; border-top:0; padding-top:0; margin-top:-2px; }
     /* O tong tuan: 1 khoi noi bat, tach dau tuan */
     .gm-cal-week{
       min-height:0; padding:11px 12px; margin:10px 0 6px;
@@ -696,6 +698,22 @@
     return isNaN(v) ? 0 : v;
   }
 
+  // Nhan dien deal "chuyen von noi bo" giua cac tai khoan (khong phai nap/rut moi).
+  // Dua tren comment cua dong balance: chua "INT" (internal transfer cua broker), internal, transfer, chuyen.
+  // Dung ham nay o moi noi loc de ap dung cho ca deal cu (localStorage, khong co san co isInternal).
+  // Nhan dien deal "chuyen von noi bo" giua cac tai khoan (khong phai nap/rut moi).
+  // Dieu kien: la dong balance, comment co dau hieu chuyen (INT/internal/transfer/chuyen),
+  // VA gia tri du lon (>= INTERNAL_MIN_USD). Cac khoan nho (vd 101.64) van tinh la nap/rut that.
+  var INTERNAL_MIN_USD = 1000;
+  function isInternalTransfer(d){
+    if(!d || d.type !== "balance") return false;
+    var c = d.comment || "";
+    var looksTransfer = (d.isInternal === true) || /(^|[-_ ])INT([-_ ]|$)|internal|transfer|chuyển|chuyen/i.test(c);
+    if(!looksTransfer) return false;
+    return Math.abs(d.profit || 0) >= INTERNAL_MIN_USD;
+  }
+  window.isInternalTransfer = isInternalTransfer;
+
   function parseDealsFromHtml(html){
     var doc = new DOMParser().parseFromString(html, "text/html");
     var rows = doc.querySelectorAll("tr");
@@ -710,12 +728,18 @@
       if(tds.length < 14) continue;
       var time = tds[0].textContent.trim();
       if(!DATE_RE.test(time)) continue;
+      var dtype = tds[3].textContent.trim().toLowerCase();
+      var dcomment = tds[14] ? tds[14].textContent.trim() : "";
+      // Chuyen von noi bo giua cac TK (dong balance co comment chua "INT" hoac "internal"/"transfer")
+      // -> khong tinh la nap/rut moi khi gop nhieu tai khoan.
+      var isInternal = (dtype === "balance") &&
+        /(^|[-_ ])INT([-_ ]|$)|internal|transfer|chuyển|chuyen/i.test(dcomment);
       out.push({
         time: time,
         ts: parseMt5Time(time),
         id: tds[1].textContent.trim(),
         symbol: tds[2].textContent.trim(),
-        type: tds[3].textContent.trim().toLowerCase(),
+        type: dtype,
         direction: tds[4].textContent.trim().toLowerCase(),
         volume: parseNum(tds[5].textContent),
         price: parseNum(tds[6].textContent),
@@ -726,7 +750,8 @@
         swap: parseNum(tds[11].textContent),
         profit: parseNum(tds[12].textContent),
         balance: parseNum(tds[13].textContent),
-        comment: tds[14] ? tds[14].textContent.trim() : ""
+        comment: dcomment,
+        isInternal: isInternal
       });
     }
     return out;
@@ -870,9 +895,8 @@
     var expectancy = (winRate/100*avgWin) - ((1-winRate/100)*avgLoss);
 
     // Type = balance -> nop tien (profit > 0) hoac rut tien (profit < 0).
-    // Von thuc nop vao tai khoan = tong tat ca cac lan nop tru di cac lan rut,
-    // dung lam mau so tinh % Tong loi nhuan thay vi chi lay so du dau tien.
-    var balanceOps = deals.filter(function(d){ return d.type === "balance"; });
+    // Loai cac dong CHUYEN VON NOI BO (isInternal) khi gop nhieu TK -> khong tinh la nap/rut moi.
+    var balanceOps = deals.filter(function(d){ return d.type === "balance" && !isInternalTransfer(d); });
     var totalDeposits = balanceOps.filter(function(d){ return d.profit > 0; }).reduce(function(s,d){ return s+d.profit; }, 0);
     var totalWithdrawals = balanceOps.filter(function(d){ return d.profit < 0; }).reduce(function(s,d){ return s+d.profit; }, 0); // am
     var netDeposited = totalDeposits + totalWithdrawals;
@@ -1919,12 +1943,16 @@
       if (loggedOutForm) loggedOutForm.style.display = "none";
       if (loggedInForm) loggedInForm.style.display = "flex";
       if (userEmailSpan) userEmailSpan.textContent = syncState.user.email;
+      window.mt5_currentUserEmail = syncState.user.email || null;
     } else {
       if (loggedOutForm) loggedOutForm.style.display = "flex";
       if (loggedInForm) loggedInForm.style.display = "none";
       if (userEmailSpan) userEmailSpan.textContent = "";
       if (statusText) statusText.textContent = "Chưa đăng nhập (Lưu trữ cục bộ)";
+      window.mt5_currentUserEmail = null;
     }
+    // Cap nhat lai mo hinh 1% khi trang thai dang nhap doi (dieu chinh thu cong phu thuoc email)
+    if (typeof window.mt5_onUserChanged === "function") { try { window.mt5_onUserChanged(); } catch(e){} }
 
     var isDisabled = syncState.isSyncing;
     if (loginBtn) loginBtn.disabled = isDisabled;
@@ -2463,6 +2491,16 @@
     return count;
   }
 
+  // ====== DIEU CHINH THU CONG (bo sung 1 lan) ======
+  // Ngay 13/9 o TAI KHOAN CU: lai thuc 466.42 USD va rut 390 USD, khong co trong file report TK moi.
+  // CHI ap dung cho tai khoan dang nhap MANUAL_FOR_EMAIL. Xoa cac dong duoi neu khong con can.
+  var MANUAL_FOR_EMAIL = "hainamlh@gmail.com";
+  var MANUAL_PNL_USD = { "2026.09.13": 466.42 };   // lai/lo bo sung theo ngay (USD)
+  var MANUAL_CASH_USD = { "2026.09.13": -390 };     // nap(+)/rut(-): rut 390 (khong co trong file)
+  function manualAdjApplies(){
+    return (window.mt5_currentUserEmail || "").toLowerCase() === MANUAL_FOR_EMAIL.toLowerCase();
+  }
+
   // ---------- Pull actual daily P/L from Journal tab ----------
   function getActualDailyPnlUsd(){
     if(typeof window.getJournalDeals !== "function") return [];
@@ -2476,6 +2514,13 @@
       if(!byDate[key]) byDate[key] = 0;
       byDate[key] += d.profit + (d.swap||0) + (d.commission||0) + (d.fee||0);
     });
+    // Bo sung lai/lo thu cong (chi cho tai khoan chi dinh)
+    if(manualAdjApplies()){
+      Object.keys(MANUAL_PNL_USD).forEach(function(k){
+        if(!byDate[k]) byDate[k] = 0;
+        byDate[k] += MANUAL_PNL_USD[k];
+      });
+    }
     var dates = Object.keys(byDate).sort();
     return dates.map(function(k){ return { dateStr:k, profitUsd:byDate[k] }; });
   }
@@ -2502,11 +2547,19 @@
     var byDate = {};
     deals.forEach(function(d){
       if(d.type !== "balance") return;
-      if(d.ts < firstTradeTs) return; // nap/rut truoc lenh dau = von goc, bo qua
+      if(window.isInternalTransfer && window.isInternalTransfer(d)) return;  // chuyen von noi bo -> khong tinh nap/rut
+      if(d.ts < firstTradeTs) return;   // nap/rut truoc lenh dau = von goc, bo qua
       var key = String(d.time).slice(0,10);
       if(!byDate[key]) byDate[key] = 0;
       byDate[key] += d.profit; // nap (+) / rut (-)
     });
+    // Bo sung nap/rut thu cong (chi cho tai khoan chi dinh)
+    if(manualAdjApplies()){
+      Object.keys(MANUAL_CASH_USD).forEach(function(k){
+        if(!byDate[k]) byDate[k] = 0;
+        byDate[k] += MANUAL_CASH_USD[k];
+      });
+    }
     return byDate;
   }
 
@@ -2652,6 +2705,12 @@
     if(selectedMonthIndex > blended.summaries.length) selectedMonthIndex = 1;
     renderAllGrowth();
   }
+  // Khi dang nhap/dang xuat doi -> tinh lai (dieu chinh thu cong phu thuoc email).
+  window.mt5_onUserChanged = function(){
+    if(document.getElementById("tabGrowth") && !document.getElementById("tabGrowth").hidden){
+      recomputeAndRender();
+    }
+  };
 
   // ---------- KPI banner ----------
   function renderKpis(){
@@ -2848,17 +2907,33 @@
         planPnl += s.profitVnd; // loi nhuan cac ngay ke hoach (chua giao dich)
       }
     });
-    // Von hien tai = tai san thuc te den ngay GD cuoi; neu thang chua co GD -> von dau thang
+    // Von hien tai = tai san thuc te den ngay GD cuoi; neu thang chua co GD -> von dau thang.
+    // Rieng thang moi nhat co giao dich: uu tien so du THUC TE tu lenh cuoi cung da import
+    // (getLatestDealBalance) de khop tuyet doi voi tai khoan, khong bi lech do mo hinh.
     var currentAsset = (lastActualAsset !== null) ? lastActualAsset : m.startAsset;
+    var isLatestMonthWithData = false;
+    (function(){
+      var lastWithData = null;
+      blended.summaries.forEach(function(mm){ if(mm.hasActual) lastWithData = mm.monthIndex; });
+      isLatestMonthWithData = (lastWithData !== null && m.monthIndex === lastWithData);
+    })();
+    if(isLatestMonthWithData && lastActualAsset !== null && typeof window.getLatestDealBalance === "function"){
+      var realBal = window.getLatestDealBalance();
+      if(realBal !== null && realBal !== undefined && realBal > 0){
+        currentAsset = realBal * fxRate; // doi ra VND cho khop don vi hien thi
+      }
+    }
 
     var monthTargetPct = monthlyTargetFrom(getDailyTarget());
     var monthActualPct = (m.startAsset && m.startAsset > 0) ? (monthPnl / m.startAsset) : 0;
     var monthHit = monthActualPct >= monthTargetPct - 1e-9;
+    // Loi nhuan (thuan) ca thang = von cuoi - von dau - nap/rut. Khop cot "Loi nhuan" o bang thang.
+    var netProfit = (m.endAssetTradingOnly - m.startAsset);
 
     var summaryHtml =
       "<div class=\"gm-cal-summary six\">" +
-        kpiBox("Tổng lợi nhuận tháng", moneySigned(monthPnl), monthPnl >= 0 ? "up" : "down") +
-        kpiBox("Lợi nhuận kế hoạch", moneySigned(planPnl), planPnl >= 0 ? "up" : "down") +
+        kpiBox("Lợi nhuận thực tế", moneySigned(monthPnl), monthPnl >= 0 ? "up" : "down") +
+        kpiBox("Lợi nhuận (cả tháng)", moneySigned(netProfit), netProfit >= 0 ? "up" : "down") +
         kpiBox("Mục tiêu / Thực hiện", fmtPct(monthTargetPct) + " / <span class=\"" + (monthHit ? "up" : "down") + "\">" + fmtPct(monthActualPct) + "</span>", "") +
         kpiBox("Vốn đầu tháng", money(m.startAsset), "") +
         kpiBox("Vốn hiện tại", money(currentAsset), "") +
@@ -2914,6 +2989,7 @@
               "<div class=\"dnum\">" + dlabel + (s.source !== "actual" ? " · KH" : "") + "</div>" +
               "<div class=\"dpnl\">" + moneySigned(s.profitVnd) + "</div>" +
               "<div class=\"dpct\">" + fmtPct(s.pctUsed) + "</div>" +
+              "<div class=\"dasset\">" + money(s.assetAfter) + "</div>" +
             "</div>"
           );
         } else {
