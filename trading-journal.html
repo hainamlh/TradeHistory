@@ -921,7 +921,7 @@
     for(var pi=0; pi<deals.length; pi++){
       var dd0 = deals[pi];
       if(firstTradeIdx >= 0 && pi >= firstTradeIdx) break;
-      if(dd0.type === "balance") preTradeNet += dd0.profit;
+      if(dd0.type === "balance" && !isInternalTransfer(dd0)) preTradeNet += dd0.profit;
     }
     var initialCapital = preTradeNet;
     if(initialCapital <= 0){
@@ -936,7 +936,7 @@
       var d = deals[ei];
       var afterFirstTrade = (firstTradeIdx >= 0 && ei >= firstTradeIdx);
       if(d.type === "balance"){
-        if(afterFirstTrade) cumNetAfter += d.profit; // nap/rut giua chung
+        if(afterFirstTrade && !isInternalTransfer(d)) cumNetAfter += d.profit; // nap/rut giua chung (bo qua chuyen noi bo)
         // nap/rut truoc trade da nam trong initialCapital, bo qua
       } else {
         cumTradePL += (d.profit + d.commission + d.fee + d.swap);
