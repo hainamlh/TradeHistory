@@ -2971,12 +2971,19 @@
     var cells = [head];
     weeks.forEach(function(wk, wi){
       var weekPnl = 0, weekWin = 0, weekLoss = 0, weekStartAsset = null;
+      var weekActualPnl = 0, weekActualDays = 0; // chi cac ngay THUC TE
       wk.order.forEach(function(s){
         weekPnl += s.profitVnd;
         if(weekStartAsset === null) weekStartAsset = s.assetBefore;
-        if(s.source === "actual"){ if(s.profitVnd > 0) weekWin++; else if(s.profitVnd < 0) weekLoss++; }
+        if(s.source === "actual"){
+          weekActualPnl += s.profitVnd;
+          weekActualDays++;
+          if(s.profitVnd > 0) weekWin++; else if(s.profitVnd < 0) weekLoss++;
+        }
       });
-      var weekActualPct = (weekStartAsset && weekStartAsset > 0) ? (weekPnl / weekStartAsset) : 0;
+      // Thuc hien = ket qua THUC TE / von dau tuan. Tuan chua co GD -> khong hien %.
+      var hasActualWeek = weekActualDays > 0;
+      var weekActualPct = (hasActualWeek && weekStartAsset && weekStartAsset > 0) ? (weekActualPnl / weekStartAsset) : 0;
 
       // 7 o ngay (T2..CN)
       for(var c = 0; c < 7; c++){
@@ -3001,13 +3008,16 @@
       var weekDaysCount = Math.min(wk.order.length, 5);
       var weekTargetPct = Math.pow(1 + getDailyTarget(), weekDaysCount) - 1;
       var wcls = weekPnl > 0 ? "pos" : (weekPnl < 0 ? "neg" : "");
-      var weekHit = weekActualPct >= weekTargetPct - 1e-9;
+      var weekHit = hasActualWeek && (weekActualPct >= weekTargetPct - 1e-9);
+      var thExecHtml = hasActualWeek
+        ? "<span class=\"" + (weekHit ? "up" : "down") + "\">" + fmtPct(weekActualPct) + "</span>"
+        : "<span style=\"color:var(--muted)\">—</span>";
       cells.push(
         "<div class=\"gm-cal-week " + wcls + "\">" +
           "<div class=\"wlabel\">Tuần " + (wi + 1) + "</div>" +
           "<div class=\"wpnl\">" + moneySigned(weekPnl) + "</div>" +
           "<div class=\"wtarget\">Mục tiêu: " + fmtPct(weekTargetPct) + "</div>" +
-          "<div class=\"wtarget\">Thực hiện: <span class=\"" + (weekHit ? "up" : "down") + "\">" + fmtPct(weekActualPct) + "</span></div>" +
+          "<div class=\"wtarget\">Thực hiện: " + thExecHtml + "</div>" +
         "</div>"
       );
     });
