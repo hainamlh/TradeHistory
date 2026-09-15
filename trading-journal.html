@@ -932,22 +932,47 @@
     var equity = [];
     var cumNetAfter = 0; // net nap/rut sau khi da bat dau trade
     var cumTradePL = 0;  // loi nhuan giao dich cong don (khong gom nap/rut)
+    // Diem mo dau duong cong = VON GOC (tong nap truoc lenh dau), dat tai thoi diem lenh dau tien.
+    // Cac deal nap/gom von TRUOC lenh dau khong ve tung buoc (tranh hien 311 -> ... -> 7174).
+    if(firstTradeIdx >= 0){
+      var ft = deals[firstTradeIdx];
+      equity.push({
+        ts: ft.ts, time: ft.time,
+        balance: initialCapital, tradePL: 0, realBalance: initialCapital,
+        tradingEquity: initialCapital, capitalBase: initialCapital
+      });
+    }
     for(var ei=0; ei<deals.length; ei++){
       var d = deals[ei];
       var afterFirstTrade = (firstTradeIdx >= 0 && ei >= firstTradeIdx);
+      if(firstTradeIdx >= 0 && ei < firstTradeIdx) continue; // bo qua giai doan gom von goc
       if(d.type === "balance"){
         if(afterFirstTrade && !isInternalTransfer(d)) cumNetAfter += d.profit; // nap/rut giua chung (bo qua chuyen noi bo)
-        // nap/rut truoc trade da nam trong initialCapital, bo qua
       } else {
-        cumTradePL += (d.profit + d.commission + d.fee + d.swap);
+        // Lenh thu cong (_manual): loi nhuan da nam trong so du that (d.balance) -> khong cong lai vao equity,
+        // tranh tinh doi. Van duoc dem o phan thong ke "Hieu qua giao dich".
+        if(!d._manual){
+          cumTradePL += (d.profit + d.commission + d.fee + d.swap);
+        }
       }
       var capitalBase = initialCapital + cumNetAfter; // von thuc te tai thoi diem nay
+      // So du THUC: uu tien so du that MT5 ghi sau moi deal (d.balance) -> khop tuyet doi voi tai khoan.
+      // Deal thu cong (balance null) ke thua so du diem lien truoc de duong lien mach.
+      var realBal;
+      if(d.balance !== undefined && d.balance !== null && !isNaN(d.balance)){
+        realBal = d.balance;
+      } else if(equity.length){
+        realBal = equity[equity.length-1].realBalance;
+      } else {
+        realBal = capitalBase + cumTradePL;
+      }
       equity.push({
         ts:d.ts, time:d.time,
-        balance: initialCapital + cumTradePL,   // duong ve: muot, khong nhay khi nap
+        balance: realBal,                        // duong chinh = so du thuc (khop balance tk)
         tradePL: cumTradePL,
-        realBalance: capitalBase + cumTradePL,   // so du that (gom nap/rut) de doi chieu
-        capitalBase: capitalBase                 // quy mo von de tinh drawdown %
+        realBalance: realBal,
+        tradingEquity: initialCapital + cumTradePL,
+        capitalBase: capitalBase
       });
     }
     var startBalance = initialCapital;
@@ -1270,10 +1295,7 @@
       var pxRatio = contRect.width/W;
       tooltip.style.left = (px*pxRatio) + "px";
       tooltip.style.top = (py*pxRatio) + "px";
-      var tipHtml = "<b>"+pt.time+"</b><br>Equity giao dịch: "+fmtCurrency(pt.balance, false);
-      if(pt.realBalance !== undefined && Math.abs(pt.realBalance - pt.balance) > 0.005){
-        tipHtml += "<br><span style='opacity:.75'>Số dư thực (gồm nạp/rút): "+fmtCurrency(pt.realBalance, false)+"</span>";
-      }
+      var tipHtml = "<b>"+pt.time+"</b><br>Số dư thực: "+fmtCurrency(pt.balance, false);
       tooltip.innerHTML = tipHtml;
       tooltip.style.display = "block";
     });
@@ -1675,7 +1697,7 @@
     equityView = null;
     weekWindowStartIdx = null;
     weekdayViewMondayTs = null;
-    currentStats = computeStats(state.deals);
+    currentStats = computeStats(window.getJournalDeals());
     var first = state.deals[0], last = state.deals[state.deals.length-1];
     document.getElementById("accountLine").textContent =
       state.deals.length + " dòng giao dịch \u00b7 " + first.time.slice(0,10) + " \u2192 " + last.time.slice(0,10);
@@ -1691,8 +1713,37 @@
     document.dispatchEvent(new CustomEvent("mt5:dataChanged"));
   }
 
-  // Cho phep tab "Mo hinh 1%" doc du lieu lenh da import (khong sua state tu ben ngoai)
-  window.getJournalDeals = function(){ return state.deals; };
+  // ---- Lenh giao dich BO SUNG THU CONG (khong co trong report) ----
+  // Chi ap cho tai khoan MANUAL_FOR_EMAIL (kiem tra o window.mt5_currentUserEmail).
+  // Moi muc tao 1 cap in/out gia lap de tab Nhat ky (hieu qua, thong ke) va Mo hinh 1% deu ghi nhan.
+  var MANUAL_TRADES = [
+    // Ngay 13/9 (TK cu): lai 466.42, khong co trong report
+    { openTime:"2026.09.13 22:26:00", closeTime:"2026.09.13 22:56:00", symbol:"BTCUSD", dir:"buy", profit:466.42 },
+    // Ngay 15/9 (TK moi Pro): lai BTC 234.97, giu 30 phut (report chua co lenh)
+    { openTime:"2026.09.15 18:51:00", closeTime:"2026.09.15 19:21:00", symbol:"BTCUSD", dir:"buy", profit:234.97 }
+  ];
+  function buildManualDeals(){
+    if((window.mt5_currentUserEmail||"").toLowerCase() !== "hainamlh@gmail.com") return [];
+    var out = [];
+    MANUAL_TRADES.forEach(function(t, i){
+      var pid = "MANUAL-" + i;
+      out.push({ time:t.openTime, ts:parseMt5Time(t.openTime), id:pid+"-in", symbol:t.symbol,
+        type:(t.dir==="sell"?"sell":"buy"), direction:"in", volume:0, price:0, order:pid,
+        positionId:pid, commission:0, fee:0, swap:0, profit:0, balance:null, comment:"manual", _manual:true });
+      out.push({ time:t.closeTime, ts:parseMt5Time(t.closeTime), id:pid+"-out", symbol:t.symbol,
+        type:(t.dir==="sell"?"sell":"buy"), direction:"out", volume:0, price:0, order:pid,
+        positionId:pid, commission:0, fee:0, swap:0, profit:t.profit, balance:null, comment:"manual", _manual:true });
+    });
+    return out;
+  }
+  // Tron lenh thu cong vao danh sach deals (giu thu tu theo thoi gian) cho ca 2 tab.
+  window.getJournalDeals = function(){
+    var manual = buildManualDeals();
+    if(!manual.length) return state.deals;
+    var all = state.deals.concat(manual);
+    all.sort(function(a,b){ return (a.ts||0) - (b.ts||0); });
+    return all;
+  };
   window.getLatestAccountEquity = function(){
     if(!state.equitySnapshots || !state.equitySnapshots.length) return null;
     var latest = state.equitySnapshots.reduce(function(a,b){ return (b.ts > a.ts) ? b : a; });
@@ -1951,7 +2002,8 @@
       if (statusText) statusText.textContent = "Chưa đăng nhập (Lưu trữ cục bộ)";
       window.mt5_currentUserEmail = null;
     }
-    // Cap nhat lai mo hinh 1% khi trang thai dang nhap doi (dieu chinh thu cong phu thuoc email)
+    // Cap nhat lai khi trang thai dang nhap doi (lenh ao thu cong phu thuoc email)
+    if (state.deals && state.deals.length) { try { renderAll(); } catch(e){} }
     if (typeof window.mt5_onUserChanged === "function") { try { window.mt5_onUserChanged(); } catch(e){} }
 
     var isDisabled = syncState.isSyncing;
@@ -2495,8 +2547,12 @@
   // Ngay 13/9 o TAI KHOAN CU: lai thuc 466.42 USD va rut 390 USD, khong co trong file report TK moi.
   // CHI ap dung cho tai khoan dang nhap MANUAL_FOR_EMAIL. Xoa cac dong duoi neu khong con can.
   var MANUAL_FOR_EMAIL = "hainamlh@gmail.com";
-  var MANUAL_PNL_USD = { "2026.09.13": 466.42 };   // lai/lo bo sung theo ngay (USD)
-  var MANUAL_CASH_USD = { "2026.09.13": -390 };     // nap(+)/rut(-): rut 390 (khong co trong file)
+  // ====== DIEU CHINH THU CONG (mo hinh 1%) ======
+  // Lai/lo thu cong da chuyen thanh LENH AO (MANUAL_TRADES) o tab Nhat ky -> mo hinh tu doc qua
+  // getActualDailyPnlUsd, khong khai o day nua de tranh cong doi.
+  // Chi con nap/rut khong gan voi lenh (vd rut tien ngay 13/9).
+  var MANUAL_PNL_USD = {};                          // (trong) - da chuyen sang MANUAL_TRADES
+  var MANUAL_CASH_USD = { "2026.09.13": -390 };     // nap(+)/rut(-): rut 390 ngay 13/9 (khong co trong file)
   function manualAdjApplies(){
     return (window.mt5_currentUserEmail || "").toLowerCase() === MANUAL_FOR_EMAIL.toLowerCase();
   }
@@ -2802,9 +2858,11 @@
     document.getElementById("gmDetailMonthLabel").textContent = m.year + " · Tháng " + m.monthIndex + (blended.startYM ? " · " + modelMonthIdxToLabel(m.monthIndex, blended.startYM) : "");
     var body = document.getElementById("gmDayBody");
     // Lai kep % (luy ke tu dau thang) = Loi nhuan giao dich luy ke / Von binh quan gia quyen theo ngay.
-    // Von binh quan = trung binh von lam viec (assetBefore) cua tung ngay giao dich, moi ngay trong so 1.
-    // Cach nay cong bang khi nap/rut giua thang: von moi nap chi tinh cho so ngay no thuc su ton tai.
-    var cumProfit = 0, cumCapital = 0, dayCount = 0;
+    // Lai kep % (trong thang) = loi nhuan luy ke den ngay nay / VON DAU THANG.
+    // Dung cung cach voi "Thuc hien" o Lich va cot "Tang truong trong thang" o bang thang,
+    // de cac so khop nhau. (Truoc day dung von binh quan theo ngay nen bi lech.)
+    var monthStartAsset = m.startAsset || (m.days[0] ? m.days[0].assetBefore : 0);
+    var cumProfit = 0;
     body.innerHTML = m.days.map(function(s){
       var pnlCls = s.source !== "actual" ? "pnl-plan" : (s.profitVnd > 0 ? "pnl-pos" : (s.profitVnd < 0 ? "pnl-neg" : ""));
       var cashNote = (s.cashVnd && Math.abs(s.cashVnd) > 0)
@@ -2815,12 +2873,9 @@
         ? "<span class=\"src-pill actual\">Thực tế" + (s.dateLabel ? " · " + s.dateLabel : "") + "</span>"
         : "<span class=\"src-pill plan\">Kế hoạch</span>") + cashNote;
 
-      // Cong don von & loi nhuan den ngay nay
+      // Cong don loi nhuan den ngay nay
       cumProfit += s.profitVnd;
-      cumCapital += s.assetBefore; // von lam viec trong ngay (da gom nap/rut trong ngay)
-      dayCount += 1;
-      var avgCapital = dayCount ? (cumCapital / dayCount) : 0;
-      var compoundPct = avgCapital > 0 ? (cumProfit / avgCapital) : 0;
+      var compoundPct = monthStartAsset > 0 ? (cumProfit / monthStartAsset) : 0;
 
       return "<tr>" +
         "<td>Ngày " + s.d + "</td>" +
