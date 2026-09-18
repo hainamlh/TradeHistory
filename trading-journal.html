@@ -451,7 +451,7 @@
 
     <div class="panel">
       <div class="panel-head">
-        <h3>Đường cong vốn (Equity Curve) — chỉ tính kết quả giao dịch</h3>
+        <h3>Đường cong vốn (Equity Curve) — số dư thực</h3>
         <div class="head-actions">
           <span class="meta" id="equityMeta"></span>
           <button class="small ghost" id="btnResetZoom">Xem toàn bộ</button>
@@ -1719,8 +1719,10 @@
   var MANUAL_TRADES = [
     // Ngay 13/9 (TK cu): lai 466.42, khong co trong report
     { openTime:"2026.09.13 22:26:00", closeTime:"2026.09.13 22:56:00", symbol:"BTCUSD", dir:"buy", profit:466.42 },
-    // Ngay 15/9 (TK moi Pro): lai BTC 234.97, giu 30 phut (report chua co lenh)
-    { openTime:"2026.09.15 18:51:00", closeTime:"2026.09.15 19:21:00", symbol:"BTCUSD", dir:"buy", profit:234.97 }
+    // Ngay 15/9 (TK Pro): lai BTC 234.97, giu 30 phut. balanceAfter = so du that sau lenh (17116.75)
+    { openTime:"2026.09.15 18:51:00", closeTime:"2026.09.15 19:21:00", symbol:"BTCUSD", dir:"buy", profit:234.97, balanceAfter:17116.75 },
+    // Ngay 17/9 (TK Tinh Tam): lai 287.19. balanceAfter = so du that sau lenh (17403.94)
+    { openTime:"2026.09.17 20:00:00", closeTime:"2026.09.17 20:30:00", symbol:"BTCUSD", dir:"buy", profit:287.19, balanceAfter:17403.94 }
   ];
   function buildManualDeals(){
     if((window.mt5_currentUserEmail||"").toLowerCase() !== "hainamlh@gmail.com") return [];
@@ -1732,7 +1734,8 @@
         positionId:pid, commission:0, fee:0, swap:0, profit:0, balance:null, comment:"manual", _manual:true });
       out.push({ time:t.closeTime, ts:parseMt5Time(t.closeTime), id:pid+"-out", symbol:t.symbol,
         type:(t.dir==="sell"?"sell":"buy"), direction:"out", volume:0, price:0, order:pid,
-        positionId:pid, commission:0, fee:0, swap:0, profit:t.profit, balance:null, comment:"manual", _manual:true });
+        positionId:pid, commission:0, fee:0, swap:0, profit:t.profit,
+        balance:(t.balanceAfter !== undefined ? t.balanceAfter : null), comment:"manual", _manual:true });
     });
     return out;
   }
@@ -1750,8 +1753,14 @@
     return latest.equity;
   };
   window.getLatestDealBalance = function(){
-    if(!state.deals || !state.deals.length) return null;
-    return state.deals[state.deals.length-1].balance;
+    // Lay so du cua deal CO balance cuoi cung, tinh ca lenh ao thu cong (co balanceAfter).
+    var all = (typeof window.getJournalDeals === "function") ? window.getJournalDeals() : state.deals;
+    if(!all || !all.length) return null;
+    for(var i = all.length - 1; i >= 0; i--){
+      var b = all[i].balance;
+      if(b !== undefined && b !== null && !isNaN(b)) return b;
+    }
+    return null;
   };
 
   // ---------- Toast ----------
@@ -2735,6 +2744,30 @@
         }
       }
     });
+
+    // Neo tai san ngay THUC TE cuoi cung theo SO DU THAT cua tai khoan (getLatestDealBalance),
+    // de cot "Tai san"/"Von hien tai" o Bang va Lich khop tuyet doi voi tai khoan.
+    (function(){
+      if(typeof window.getLatestDealBalance !== "function") return;
+      var realBal = window.getLatestDealBalance();
+      if(realBal === null || realBal === undefined || isNaN(realBal) || realBal <= 0) return;
+      var realBalVnd = realBal * fxRate;
+      // Tim ngay thuc te cuoi cung
+      var lastActualIdx = -1;
+      for(var ri = results.length - 1; ri >= 0; ri--){
+        if(results[ri].source === "actual"){ lastActualIdx = ri; break; }
+      }
+      if(lastActualIdx < 0) return;
+      var diff = realBalVnd - results[lastActualIdx].assetAfter;
+      if(Math.abs(diff) < 1) return;
+      // Dieu chinh assetAfter ngay thuc te cuoi = so du that; dich cac ngay KE HOACH sau do theo.
+      results[lastActualIdx].assetAfter = realBalVnd;
+      for(var rj = lastActualIdx + 1; rj < results.length; rj++){
+        if(results[rj].monthIdx !== results[lastActualIdx].monthIdx && results[rj].source !== "plan") { /* van dich cac thang tuong lai */ }
+        results[rj].assetBefore += diff;
+        results[rj].assetAfter += diff;
+      }
+    })();
 
     var summaries = GM_DATA.months.map(function(m){
       var daySlots = results.filter(function(s){ return s.monthIdx === m.monthIndex; });
